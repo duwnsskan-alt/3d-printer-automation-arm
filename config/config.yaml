@@ -1,0 +1,123 @@
+# ============================================================
+# 3D Printer Automation Arm - Master Configuration
+# ============================================================
+# All sensitive values (passwords, API keys) should be set
+# via environment variables or a .env file — never commit secrets.
+
+# ─── Printer ────────────────────────────────────────────────
+printer:
+  host: "192.168.1.200"          # BambuLab P2S LAN IP
+  serial: "CHANGE_ME"            # Printer serial number
+  access_code: "CHANGE_ME"       # LAN mode access code (also set BAMBU_ACCESS_CODE env)
+  mqtt_port: 8883
+  ftps_port: 990
+  tls: true
+  ca_cert: "config/certs/bambu_ca.crt"  # DER or PEM root cert
+  # Topic patterns (filled at runtime using serial)
+  topic_report: "device/{serial}/report"
+  topic_request: "device/{serial}/request"
+  completion_states: ["FINISH"]  # MC_PRINT_STAGE values that mean "done"
+
+# ─── Robot ──────────────────────────────────────────────────
+robot:
+  port: "/dev/ttyUSB0"           # USB-to-serial adapter on Jetson
+  baudrate: 1000000
+  protocol_version: 0            # Feetech STS protocol (0 = STS)
+  joint_ids: [1, 2, 3, 4, 5, 6]  # Servo IDs in order base→wrist
+  gripper_id: 7
+  home_position: [2048, 2048, 2048, 2048, 2048, 2048]  # Encoder ticks
+  # Safety limits
+  max_torque: 800                # STS3215 unit (0-1023); ~78% of stall
+  max_velocity: 300              # STS3215 unit
+  torque_limit_per_joint: [800, 800, 700, 600, 500, 400]
+  overload_threshold: 900        # Abort if any joint exceeds this
+  position_error_threshold: 50  # Ticks; triggers fault if exceeded after move
+  # Workspace limits (joint angles in degrees)
+  joint_limits_deg:
+    min: [-160, -90, -135, -160, -100, -180]
+    max: [ 160,  90,  135,  160,  100,  180]
+  # Predefined poses (encoder ticks for each joint 1-6)
+  poses:
+    home:        [2048, 1800, 2200, 2048, 2048, 2048]
+    door_approach: [1500, 2100, 1800, 2048, 2048, 2048]
+    door_grab:   [1450, 2050, 1750, 2048, 2048, 2048]
+    door_open:   [1300, 2000, 1700, 2048, 2048, 2048]
+    pick_hover:  [2048, 2300, 1600, 2048, 2048, 2048]
+    pick_down:   [2048, 2400, 1550, 2048, 2048, 2048]
+    place_hover: [2600, 2200, 1700, 2048, 2048, 2048]
+    place_down:  [2600, 2350, 1650, 2048, 2048, 2048]
+
+# ─── Cameras ────────────────────────────────────────────────
+cameras:
+  front:
+    device: "/dev/video0"
+    width: 1280
+    height: 720
+    fps: 30
+    label: "front"
+  wrist:
+    device: "/dev/video2"
+    width: 640
+    height: 480
+    fps: 60
+    label: "wrist"
+
+# ─── AI / VLM ───────────────────────────────────────────────
+vlm:
+  provider: "claude"             # "claude" | "openai" | "qwen_local"
+  model_claude: "claude-opus-4-5"
+  model_openai: "gpt-4o"
+  model_qwen_local: "Qwen/Qwen2.5-VL-7B-Instruct"
+  qwen_device: "cuda"
+  max_tokens: 1024
+  temperature: 0.0
+  # Retry / fallback
+  max_retries: 3
+  fallback_order: ["claude", "openai", "qwen_local"]
+  # Sandboxing
+  allowed_api_calls:
+    - "open_door"
+    - "close_door"
+    - "pick_object"
+    - "place_object"
+    - "move_to_pose"
+    - "gripper_open"
+    - "gripper_close"
+    - "get_camera_frame"
+    - "get_printer_state"
+    - "wait"
+    - "log"
+
+# ─── VLA ────────────────────────────────────────────────────
+vla:
+  model: "smolvla"               # "smolvla" | "openvla_oft"
+  smolvla_path: "lerobot/smolvla"
+  openvla_path: "openvla/openvla-oft-prismatic-dinosiglip-224px+mx-bridge+n=1"
+  device: "cuda"
+  inference_hz: 20               # Target control loop frequency
+  action_chunk_size: 4           # Actions to execute before re-inference
+  obs_history: 2                 # Frames of history fed to model
+
+# ─── Dataset / Training ─────────────────────────────────────
+dataset:
+  repo_id: "duwnsskan-alt/3d-printer-arm-dataset"
+  local_dir: "data/dataset"
+  fps: 20
+  episode_chunk_size: 100
+
+# ─── State Machine ──────────────────────────────────────────
+state_machine:
+  # Seconds to wait in each state before declaring timeout
+  timeouts:
+    open_door: 30
+    pick: 45
+    place: 45
+    close_door: 30
+    next_print: 60
+
+# ─── Logging ────────────────────────────────────────────────
+logging:
+  level: "INFO"                  # DEBUG | INFO | WARNING | ERROR
+  log_dir: "logs"
+  max_bytes: 52428800            # 50 MB per file
+  backup_count: 5

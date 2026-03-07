@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Data / outputs
+data/
+logs/
+output/
+*.log
+*.csv
+
+# Secrets
+.env
+*.env
+config/certs/
+
+# Isaac Lab / Isaac Sim artifacts
+_isaac_sim/
+*.usd
+*.usda
+*.usdc
+*.usdz
+
+# Model weights (large binary)
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.onnx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
