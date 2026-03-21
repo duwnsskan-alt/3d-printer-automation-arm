@@ -36,6 +36,12 @@ echo "==================================================="
 mkdir -p "${OUTPUT_DIR}"/{checkpoints,logs}
 cd "${PROJECT_DIR}" && git pull --quiet
 
+# Install requirements if present
+if [ -f "requirements.txt" ]; then
+    echo "Installing requirements from requirements.txt..."
+    pip install -r requirements.txt
+fi
+
 AGENT_ARG=""
 [ -n "${AGENT_CFG}" ] && AGENT_ARG="--agent_cfg ${AGENT_CFG}"
 

@@ -189,6 +189,11 @@ DOCKER_ARGS=(
     -e "PYTHONPATH=/workspace/project"
 )
 
+# Install requirements if present inside container
+if [ -f "${SCRIPT_DIR}/requirements.txt" ]; then
+   echo "[3.5/4] Found requirements.txt. It will be installed inside the container."
+fi
+
 if [ "${WATCH}" = true ]; then
     # Watch mode: VNC rendering enabled
     DOCKER_ARGS+=(

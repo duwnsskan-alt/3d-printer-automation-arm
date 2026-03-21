@@ -20,7 +20,15 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TASK="${1:-open_door}"
+
+# Install requirements if present
+if [ -f "${SCRIPT_DIR}/requirements.txt" ]; then
+    echo "Installing requirements..."
+    pip install --quiet -r "${SCRIPT_DIR}/requirements.txt"
+    echo ""
+fi
 
 echo "==================================================================="
 echo "  Local Debug Mode (Single Env)"

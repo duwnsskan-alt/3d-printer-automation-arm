@@ -72,6 +72,14 @@ echo "  2. Open browser: http://localhost:6080/vnc.html"
 echo "======================================================="
 echo ""
 
+# ── Install project requirements ──────────────────────────────────────────────
+if [ -f /workspace/project/requirements.txt ]; then
+    echo "Installing project requirements..."
+    pip install --quiet -r /workspace/project/requirements.txt
+    echo "  Requirements installed."
+    echo ""
+fi
+
 # GPU check
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 echo ""
