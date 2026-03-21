@@ -1,2 +1,41 @@
-gymnasium>=0.29.0
+# ============================================================
+# 3D Printer Automation Arm - Edge Dependencies
+# ============================================================
+# ZED SDK (pyzed) must be installed separately via the
+# system installer: https://www.stereolabs.com/developers/release
+# ============================================================
+
+# ─── Core ───────────────────────────────────────────────────
 torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+PyYAML>=6.0
+
+# ─── Robot Control ──────────────────────────────────────────
+scservo-sdk>=1.0.0
+pyserial>=3.5
+
+# ─── LeRobot / VLA ─────────────────────────────────────────
+lerobot>=0.1.0
+huggingface-hub>=0.20.0
+transformers>=4.40.0
+accelerate>=0.27.0
+
+# ─── Printer Communication ─────────────────────────────────
+paho-mqtt>=2.0.0
+
+# ─── VLM API Clients ───────────────────────────────────────
+anthropic>=0.40.0
+openai>=1.30.0
+
+# ─── Simulation (optional) ─────────────────────────────────
+gymnasium>=0.29.0
+
+# ─── Dataset ───────────────────────────────────────────────
+pandas>=2.0.0
+pyarrow>=14.0.0
+
+# ─── Utilities ─────────────────────────────────────────────
+psutil>=5.9.0

@@ -20,7 +20,7 @@ printer:
 
 # ─── Robot ──────────────────────────────────────────────────
 robot:
-  port: "/dev/ttyUSB0"           # USB-to-serial adapter on Jetson
+  port: "/dev/ttyACM0"           # USB-to-serial adapter (SO-101)
   baudrate: 1000000
   protocol_version: 0            # Feetech STS protocol (0 = STS)
   joint_ids: [1, 2, 3, 4, 5, 6]  # Servo IDs in order base→wrist
@@ -50,12 +50,18 @@ robot:
 # ─── Cameras ────────────────────────────────────────────────
 cameras:
   front:
-    device: "/dev/video0"
+    type: "zed"                # "zed" or "usb"
+    resolution: "HD720"        # HD720 | HD1080 | HD2K | VGA
+    depth_mode: "ULTRA"        # ULTRA | QUALITY | PERFORMANCE | NONE
+    depth_min_m: 0.15          # Minimum depth range (meters)
+    depth_max_m: 2.0           # Maximum depth range (meters)
+    serial_number: 0           # 0 = auto-detect first ZED camera
     width: 1280
     height: 720
     fps: 30
     label: "front"
   wrist:
+    type: "usb"
     device: "/dev/video2"
     width: 640
     height: 480
@@ -73,7 +79,7 @@ vlm:
   temperature: 0.0
   # Retry / fallback
   max_retries: 3
-  fallback_order: ["claude", "openai", "qwen_local"]
+  fallback_order: ["claude", "openai"]  # qwen_local excluded (requires >8GB VRAM)
   # Sandboxing
   allowed_api_calls:
     - "open_door"

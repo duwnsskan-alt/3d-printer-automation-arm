@@ -16,12 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openbox \
     xterm \
     git \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # noVNC + websockify (browser-based VNC proxy)
 RUN git clone --depth=1 https://github.com/novnc/noVNC.git /opt/noVNC \
     && git clone --depth=1 https://github.com/novnc/websockify.git /opt/noVNC/utils/websockify \
-    && ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
+    && ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html \
+    && pip3 install --break-system-packages websockify
 
 # ── Environment defaults ──────────────────────────────────────────────────────
 ENV ACCEPT_EULA=Y
@@ -34,5 +36,5 @@ ENV OMNI_KIT_PRIVACY_CONSENT=Y
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-WORKDIR /workspace/project
+WORKDIR /workspace
 ENTRYPOINT ["/entrypoint.sh"]

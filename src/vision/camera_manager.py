@@ -35,6 +35,7 @@ class CameraFrame:
     timestamp: float = field(default_factory=time.time)
     width: int = 0
     height: int = 0
+    depth: Optional[np.ndarray] = None  # float32 depth in meters (ZED only)
 
     def to_jpeg_b64(self, quality: int = 85) -> str:
         """Encode frame to base64 JPEG string (for API calls)."""
@@ -149,13 +150,33 @@ class CameraManager:
     def __init__(self, cameras_cfg: dict) -> None:
         self._cameras: dict[str, Camera] = {}
         for label, cam_cfg in cameras_cfg.items():
-            self._cameras[label] = Camera(
-                label=label,
-                device=cam_cfg["device"],
-                width=cam_cfg.get("width", 1280),
-                height=cam_cfg.get("height", 720),
-                fps=cam_cfg.get("fps", 30),
-            )
+            cam_type = cam_cfg.get("type", "usb")
+            if cam_type == "zed":
+                try:
+                    from .zed_camera import ZedCamera
+                except ImportError:
+                    raise ImportError(
+                        f"Camera {label!r} is configured as 'zed' but ZED SDK is not installed."
+                    )
+                self._cameras[label] = ZedCamera(
+                    label=label,
+                    resolution=cam_cfg.get("resolution", "HD720"),
+                    depth_mode=cam_cfg.get("depth_mode", "ULTRA"),
+                    depth_min_m=cam_cfg.get("depth_min_m", 0.15),
+                    depth_max_m=cam_cfg.get("depth_max_m", 2.0),
+                    fps=cam_cfg.get("fps", 30),
+                    serial_number=cam_cfg.get("serial_number", 0),
+                    width=cam_cfg.get("width", 1280),
+                    height=cam_cfg.get("height", 720),
+                )
+            else:
+                self._cameras[label] = Camera(
+                    label=label,
+                    device=cam_cfg["device"],
+                    width=cam_cfg.get("width", 1280),
+                    height=cam_cfg.get("height", 720),
+                    fps=cam_cfg.get("fps", 30),
+                )
 
     def open_all(self) -> None:
         for cam in self._cameras.values():

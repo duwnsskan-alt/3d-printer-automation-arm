@@ -18,6 +18,7 @@ RESOLUTION="1920x1080"
 VNC_PORT=5900
 NOVNC_PORT=6080
 MODE="${SIM_MODE:-watch}"
+export PYTHONUNBUFFERED=1
 
 echo "======================================================="
 echo "  Isaac Sim Container — Mode: ${MODE}"
@@ -58,7 +59,7 @@ sleep 1
 
 # ── Step 4: noVNC web proxy ────────────────────────────────────────────────────
 echo "[4/4] Starting noVNC web proxy on port ${NOVNC_PORT}..."
-python3 /opt/noVNC/utils/websockify/run \
+/opt/noVNC/utils/websockify/run \
     --web /opt/noVNC \
     "${NOVNC_PORT}" \
     "localhost:${VNC_PORT}" &
@@ -74,9 +75,9 @@ echo ""
 
 # ── Install project requirements ──────────────────────────────────────────────
 if [ -f /workspace/project/requirements.txt ]; then
-    echo "Installing project requirements..."
-    pip install --quiet -r /workspace/project/requirements.txt
-    echo "  Requirements installed."
+    echo "Installing project requirements (best-effort)..."
+    /workspace/isaaclab/_isaac_sim/python.sh -m pip install --quiet -r /workspace/project/requirements.txt 2>&1 || \
+        echo "  WARNING: Some requirements failed to install (non-critical for simulation)."
     echo ""
 fi
 
@@ -85,16 +86,23 @@ nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 echo ""
 
 # ── Isaac Lab ─────────────────────────────────────────────────────────────────
-echo "Starting Isaac Lab: mode=${MODE}, args: $*"
+ISAAC_PYTHON="/workspace/isaaclab/_isaac_sim/python.sh"
+TRAIN_SCRIPT="/workspace/isaaclab/scripts/reinforcement_learning/rsl_rl/train.py"
+PLAY_SCRIPT="/workspace/isaaclab/scripts/reinforcement_learning/rsl_rl/play.py"
 
-if [ "${MODE}" = "train" ]; then
-    # Headless training — no rendering overhead, maximum environment throughput
-    exec python -m isaaclab.app.run \
+# SIM_SCRIPT overrides the default script (e.g. for standalone URDF loading)
+SCRIPT="${SIM_SCRIPT:-}"
+
+if [ -n "${SCRIPT}" ]; then
+    echo "Starting custom script: ${SCRIPT} $*"
+    exec ${ISAAC_PYTHON} "${SCRIPT}" "$@"
+elif [ "${MODE}" = "train" ]; then
+    echo "Starting Isaac Lab training: $*"
+    exec ${ISAAC_PYTHON} ${TRAIN_SCRIPT} \
         --headless \
         "$@"
 else
-    # Watch mode — renders to Xvfb; visible in noVNC browser tab
-    # Uses fewer environments by default (set --num_envs on the command line)
-    exec python -m isaaclab.app.run \
+    echo "Starting Isaac Lab watch mode: $*"
+    exec ${ISAAC_PYTHON} ${TRAIN_SCRIPT} \
         "$@"
 fi

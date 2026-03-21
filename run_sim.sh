@@ -37,6 +37,8 @@ DOCKER_DIR="${SCRIPT_DIR}/infra/docker"
 PROFILE="local"
 TASK="open_door"
 WATCH=false
+LOAD_URDF=false
+LOAD_SCENE=false
 MAX_ITER=""
 OVERRIDE_NUM_ENVS=""
 IMAGE_NAME="printer-arm-isaacsim"
@@ -55,6 +57,8 @@ Options:
   --watch                   Enable VNC rendering (opens browser)
   --num-envs <N>            Override number of environments
   --max-iter <N>            Override max training iterations
+  --load-urdf               Load SO-100 URDF viewer (watch mode, no RL)
+  --load-scene              Load full scene: P2S printer + SO-100 arm (watch mode)
   --rebuild                 Force Docker image rebuild
   -h, --help                Show this help
 EOF
@@ -67,6 +71,8 @@ while [[ $# -gt 0 ]]; do
         --profile)   PROFILE="$2"; shift 2 ;;
         --task)      TASK="$2"; shift 2 ;;
         --watch)     WATCH=true; shift ;;
+        --load-urdf) LOAD_URDF=true; WATCH=true; shift ;;
+        --load-scene) LOAD_SCENE=true; WATCH=true; shift ;;
         --num-envs)  OVERRIDE_NUM_ENVS="$2"; shift 2 ;;
         --max-iter)  MAX_ITER="$2"; shift 2 ;;
         --rebuild)   REBUILD=true; shift ;;
@@ -175,7 +181,9 @@ DOCKER_ARGS=(
     docker run
     --rm
     --name "${CONTAINER_NAME}"
-    --gpus all
+    --runtime=nvidia
+    -e NVIDIA_VISIBLE_DEVICES=all
+    -e NVIDIA_DRIVER_CAPABILITIES=all
     --ipc=host
     --ulimit memlock=-1
     --ulimit stack=67108864
@@ -194,12 +202,40 @@ if [ -f "${SCRIPT_DIR}/requirements.txt" ]; then
    echo "[3.5/4] Found requirements.txt. It will be installed inside the container."
 fi
 
-if [ "${WATCH}" = true ]; then
+if [ "${LOAD_URDF}" = true ]; then
+    # URDF viewer mode: load robot arm with VNC
+    DOCKER_ARGS+=(
+        -e "SIM_MODE=watch"
+        -e "SIM_SCRIPT=/workspace/project/sim/isaac_lab/load_so100_standalone.py"
+        -p 6080:6080      # noVNC web port
+        -p 5900:5900      # VNC port (native VNC client)
+    )
+    SIM_ARGS=()
+
+    echo "  URDF viewer mode: loading SO-100 robot arm."
+    echo "  VNC: vncviewer localhost:5900"
+    echo "  Web: http://localhost:6080/vnc.html"
+    echo ""
+elif [ "${LOAD_SCENE}" = true ]; then
+    # Full scene mode: P2S printer + SO-100 arm with VNC
+    DOCKER_ARGS+=(
+        -e "SIM_MODE=watch"
+        -e "SIM_SCRIPT=/workspace/project/sim/isaac_lab/load_scene_standalone.py"
+        -p 6080:6080      # noVNC web port
+        -p 5900:5900      # VNC port (native VNC client)
+    )
+    SIM_ARGS=()
+
+    echo "  Scene viewer: P2S printer + SO-100 robot arm."
+    echo "  VNC: vncviewer localhost:5900"
+    echo "  Web: http://localhost:6080/vnc.html"
+    echo ""
+elif [ "${WATCH}" = true ]; then
     # Watch mode: VNC rendering enabled
     DOCKER_ARGS+=(
         -e "SIM_MODE=watch"
         -p 6080:6080      # noVNC web port
-        -p 5900:5900      # VNC port (optional, for native VNC clients)
+        -p 5900:5900      # VNC port (native VNC client)
     )
     SIM_ARGS=(
         --task "${GYM_ID}"
@@ -207,7 +243,8 @@ if [ "${WATCH}" = true ]; then
     )
 
     echo "  VNC rendering enabled."
-    echo "  After container starts, open: http://localhost:6080/vnc.html"
+    echo "  VNC: vncviewer localhost:5900"
+    echo "  Web: http://localhost:6080/vnc.html"
     echo ""
 else
     # Training mode: headless, maximum throughput
@@ -223,15 +260,9 @@ else
     )
 fi
 
-# Agent config
-case "${TASK}" in
-    open_door)   SIM_ARGS+=(--agent_cfg "sim.isaac_lab.agents.rsl_rl_cfg:OpenDoorPPOCfg") ;;
-    pick_print)  SIM_ARGS+=(--agent_cfg "sim.isaac_lab.agents.rsl_rl_cfg:PickPrintPPOCfg") ;;
-esac
-
 echo "  Container: ${CONTAINER_NAME}"
 echo "  Image:     ${FULL_IMAGE}"
-echo "  Command:   isaaclab.app.run ${SIM_ARGS[*]}"
+echo "  Command:   rsl_rl/train.py ${SIM_ARGS[*]}"
 echo ""
 echo "-------------------------------------------------------------------"
 echo "  Press Ctrl+C to stop the simulation."
