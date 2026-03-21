@@ -1,0 +1,86 @@
+# ============================================================
+# Simulation Pipeline Configuration
+# 3D Printer Automation Arm — Isaac Lab
+# ============================================================
+# Top-level config for the full sim-to-real pipeline:
+#   Train → Evaluate → Export dataset → Convert to LeRobot format
+
+# ─── Physics ────────────────────────────────────────────────
+physics:
+  dt: 0.01                   # 100 Hz physics step
+  render_interval: 2         # Render every 2 steps → 50 Hz visual
+  gravity: [0.0, 0.0, -9.81]
+  use_gpu_pipeline: true     # PhysX GPU simulation
+
+# ─── Tasks ──────────────────────────────────────────────────
+tasks:
+  open_door:
+    gym_id: "PrinterArm-OpenDoor-v0"
+    agent_cfg: "sim.isaac_lab.agents.rsl_rl_cfg:OpenDoorPPOCfg"
+    num_envs_train: 256        # Parallel envs during training
+    num_envs_eval: 16
+    episode_length_s: 10.0
+    success_threshold: 0.7    # Door angle in radians (≈40°)
+
+  pick_print:
+    gym_id: "PrinterArm-PickPrint-v0"
+    agent_cfg: "sim.isaac_lab.agents.rsl_rl_cfg:PickPrintPPOCfg"
+    num_envs_train: 256
+    num_envs_eval: 16
+    episode_length_s: 15.0
+    success_threshold: 0.05   # Lift height in meters
+
+# ─── Training ───────────────────────────────────────────────
+training:
+  seed: 42
+  device: "cuda"
+  log_dir: "${OUTPUT_DIR}/logs"
+  checkpoint_dir: "${OUTPUT_DIR}/checkpoints"
+  # Train tasks sequentially in this order
+  curriculum:
+    - open_door
+    - pick_print
+
+# ─── Dataset Export ─────────────────────────────────────────
+dataset_export:
+  num_episodes_per_task: 500
+  min_success_rate: 0.6      # Warn (don't abort) if success rate falls below this
+  output_root: "data/sim_episodes"
+  tasks:
+    open_door:
+      checkpoint: "${OUTPUT_DIR}/checkpoints/open_door/model_latest.pt"
+      output_dir: "data/sim_episodes/open_door"
+      task_language: "open the 3d printer door"
+    pick_print:
+      checkpoint: "${OUTPUT_DIR}/checkpoints/pick_print/model_latest.pt"
+      output_dir: "data/sim_episodes/pick_print"
+      task_language: "pick the printed object from the build plate"
+
+# ─── Domain Randomization ───────────────────────────────────
+domain_randomization:
+  enabled: true
+  # Joint position noise at episode start (radians)
+  init_joint_noise_std: 0.05
+  # Door hinge stiffness range (fraction of nominal)
+  door_stiffness_range: [0.9, 1.1]
+  # Object position on build plate (meters, xy only)
+  object_pos_noise_xy: 0.05
+  # Object yaw randomization (radians)
+  object_yaw_range: [-3.14, 3.14]
+  # Lighting intensity range (fraction of nominal)
+  light_intensity_range: [0.7, 1.3]
+
+# ─── Asset Paths ────────────────────────────────────────────
+assets:
+  so100_urdf: "sim/isaac_lab/assets/so100/so100.urdf"
+  # P2S printer: pre-processed URDF (inlined from xacro, relative mesh paths)
+  p2s_urdf: "sim/isaac_lab/assets/p2s/urdf/p2s_printer.urdf"
+  # Build plate and print object use Isaac Lab primitive spawners
+  # (CuboidCfg, CylinderCfg) — no external USD files needed.
+
+# ─── Evaluation ─────────────────────────────────────────────
+eval:
+  num_episodes: 100
+  render: false              # Set true for visual debugging (slower)
+  record_video: false        # Requires render: true
+  video_dir: "${OUTPUT_DIR}/videos"

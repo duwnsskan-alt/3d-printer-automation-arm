@@ -5,6 +5,9 @@ Reward function components for the printer arm tasks.
 
 Each function takes the environment as first argument and returns
 a per-environment tensor of reward values.
+
+The P2S printer is loaded as a single articulation. The door_hinge
+joint is at index 3 (after Z-axis, Y-axis, X-axis).
 """
 
 from __future__ import annotations
@@ -15,7 +18,8 @@ from isaaclab.envs import DirectRLEnv
 
 def door_angle_reward(env: DirectRLEnv) -> torch.Tensor:
     """Reward proportional to door opening angle."""
-    door_angle = env.door.data.joint_pos[:, 0]
+    # door_hinge is joint index 3 in the printer articulation
+    door_angle = env.printer.data.joint_pos[:, 3]
     target_angle = 1.2  # ~70 degrees (fully open)
     return torch.clamp(door_angle / target_angle, 0.0, 1.0)
 
@@ -23,8 +27,9 @@ def door_angle_reward(env: DirectRLEnv) -> torch.Tensor:
 def ee_near_handle(env: DirectRLEnv) -> torch.Tensor:
     """Reward for end-effector being close to the door handle."""
     ee_pos = env.ee.data.target_pos_w[:, 0, :3]
-    # Handle position is fixed relative to door (approximate)
-    handle_pos = env.printer_door.data.root_pos_w[:, :3] + torch.tensor(
+    # Handle position is approximate relative to printer root
+    printer_pos = env.printer.data.root_pos_w[:, :3]
+    handle_pos = printer_pos + torch.tensor(
         [0.0, 0.15, 0.15], device=env.device
     )
     dist = torch.norm(ee_pos - handle_pos, dim=-1)
@@ -49,8 +54,8 @@ def lift_object(env: DirectRLEnv) -> torch.Tensor:
 
 def gripper_contact(env: DirectRLEnv) -> torch.Tensor:
     """Reward for gripper contact forces on the object (from contact sensor)."""
-    # This requires a contact sensor on the gripper — simplified here
-    gripper_pos = env.robot.data.joint_pos[:, 6:7]
+    # This requires a contact sensor on the gripper -- simplified here
+    gripper_pos = env.robot.data.joint_pos[:, 5:6]
     # Tighter gripper = higher contact reward
     return 1.0 - torch.clamp(gripper_pos / 0.04, 0.0, 1.0).squeeze(-1)
 

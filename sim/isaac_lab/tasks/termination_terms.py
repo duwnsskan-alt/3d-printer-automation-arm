@@ -2,6 +2,9 @@
 sim/isaac_lab/tasks/termination_terms.py
 ------------------------------------------
 Termination conditions for printer arm tasks.
+
+The P2S printer is loaded as a single articulation. The door_hinge
+joint is at index 3 (after Z-axis, Y-axis, X-axis).
 """
 
 from __future__ import annotations
@@ -11,8 +14,8 @@ from isaaclab.envs import DirectRLEnv
 
 
 def door_fully_open(env: DirectRLEnv) -> torch.Tensor:
-    """Return True for environments where door is fully open (>= 70°)."""
-    door_angle = env.door.data.joint_pos[:, 0]
+    """Return True for environments where door is fully open (>= 70 deg)."""
+    door_angle = env.printer.data.joint_pos[:, 3]
     return door_angle >= 1.2  # ~70 degrees
 
 

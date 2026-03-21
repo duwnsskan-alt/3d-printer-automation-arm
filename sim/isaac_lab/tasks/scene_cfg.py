@@ -5,36 +5,46 @@ Isaac Lab scene configuration for P2S + SO-100 simulation.
 
 Defines all rigid bodies, articulations, sensors, and their initial
 poses. The SO-100 arm is modelled from its official URDF (TheRobotStudio/SO-ARM100);
-the P2S printer body and door are custom rigid body assets.
+the P2S printer is loaded from a pre-processed URDF (inlined from xacro).
+
+Build plate and print object use Isaac Lab primitive spawners (CuboidCfg,
+CylinderCfg) instead of external USD files — no asset generation step needed.
 
 SO-100 joint names (from URDF):
   shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper
-Links: base → shoulder → upper_arm → lower_arm → wrist → gripper → jaw
+Links: base -> shoulder -> upper_arm -> lower_arm -> wrist -> gripper -> jaw
 """
 
 from __future__ import annotations
+
+import os
 
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
-from isaaclab.sim.spawners.from_files import UsdFileCfg, UrdfFileCfg
-from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg, CollisionPropertiesCfg
+from isaaclab.sim.spawners.from_files import UrdfFileCfg
+from isaaclab.sim.spawners.shapes import CuboidCfg, CylinderCfg
+from isaaclab.sim.schemas.schemas_cfg import (
+    RigidBodyPropertiesCfg,
+    CollisionPropertiesCfg,
+    MassPropertiesCfg,
+)
 from isaaclab.utils import configclass
-from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 import isaaclab.sim as sim_utils
 
 
 # ─── Asset Paths ──────────────────────────────────────────────────────────────
-# These USD/URDF files need to be generated or obtained separately.
-# Refer to docs/assets.md for instructions on generating the P2S URDF.
+# Resolve paths relative to the project root (mounted at /workspace/project in container).
+# At runtime, PROJECT_ROOT env var is set by run_sim.sh / launch_sim.sh.
 
-SO100_URDF_PATH = "sim/isaac_lab/assets/so100/so100.urdf"
-P2S_USD_PATH = "sim/isaac_lab/assets/p2s/p2s_body.usd"
-P2S_DOOR_USD_PATH = "sim/isaac_lab/assets/p2s/p2s_door.usd"
-BUILD_PLATE_USD_PATH = "sim/isaac_lab/assets/p2s/build_plate.usd"
-PRINT_OBJECT_USD_PATH = "sim/isaac_lab/assets/objects/generic_print.usd"
+_PROJECT_ROOT = os.environ.get("PROJECT_ROOT", "/workspace/project")
+
+SO100_URDF_PATH = os.path.join(_PROJECT_ROOT, "sim/isaac_lab/assets/so100/so100.urdf")
+P2S_URDF_PATH = os.path.join(
+    _PROJECT_ROOT, "sim/isaac_lab/assets/p2s/urdf/p2s_printer.urdf"
+)
 
 
 @configclass
@@ -44,6 +54,14 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
 
     World frame origin is at the SO-100 arm base.
     The P2S is placed 0.4m in front of the arm base.
+
+    Asset strategy:
+      - SO-100: URDF with STL meshes (sim/isaac_lab/assets/so100/)
+      - P2S printer: Pre-processed URDF with STL meshes (sim/isaac_lab/assets/p2s/)
+        The full printer URDF is loaded as an articulation so Isaac Lab can
+        actuate the door_hinge joint directly.
+      - Build plate: Isaac Lab CuboidCfg primitive (no USD needed)
+      - Print object: Isaac Lab CylinderCfg primitive (no USD needed)
     """
 
     # ── Ground Plane ──────────────────────────────────────────────────────────
@@ -108,60 +126,90 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
         },
     )
 
-    # ── P2S Printer Body (static) ─────────────────────────────────────────────
-    printer_body: RigidObjectCfg = RigidObjectCfg(
-        prim_path="/World/envs/env_.*/PrinterBody",
-        spawn=UsdFileCfg(
-            usd_path=P2S_USD_PATH,
+    # ── P2S Printer (full articulation from URDF) ────────────────────────────
+    # The P2S URDF includes all links (body, Z-bed, Y-axis, X-axis nozzle,
+    # Door) and joints. We load it as an articulation so the door_hinge joint
+    # is directly controllable for the OpenDoor task.
+    # The gantry joints (Z-axis, Y-axis, X-axis) are present but locked at
+    # home position via high stiffness — the robot does not interact with them.
+    printer: ArticulationCfg = ArticulationCfg(
+        prim_path="/World/envs/env_.*/Printer",
+        spawn=UrdfFileCfg(
+            asset_path=P2S_URDF_PATH,
+            fix_base=True,  # Printer is bolted to the table
             rigid_props=RigidBodyPropertiesCfg(
-                kinematic_enabled=True,  # Static — not simulated dynamically
+                rigid_body_enabled=True,
+                max_linear_velocity=5.0,
+                max_angular_velocity=20.0,
+                disable_gravity=False,
+            ),
+            collision_props=CollisionPropertiesCfg(
+                contact_offset=0.005,
+                rest_offset=0.0,
             ),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.40, 0.0, 0.0),  # 40cm in front of arm base
-        ),
-    )
-
-    # ── P2S Door (articulated hinge) ──────────────────────────────────────────
-    printer_door: ArticulationCfg = ArticulationCfg(
-        prim_path="/World/envs/env_.*/PrinterDoor",
-        spawn=UsdFileCfg(
-            usd_path=P2S_DOOR_USD_PATH,
-        ),
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.40, 0.0, 0.0),
-            joint_pos={"door_hinge": 0.0},  # Closed
+            pos=(0.40, 0.0, 0.0),  # 40cm in front of arm base
+            joint_pos={
+                "Z-axis": 0.0,
+                "Y-axis": 0.0,
+                "X-axis": 0.0,
+                "door_hinge": 0.0,  # Closed
+            },
         ),
         actuators={
-            "door_hinge": sim_utils.ImplicitActuatorCfg(
+            # Door hinge: the joint the robot needs to open
+            "door": sim_utils.ImplicitActuatorCfg(
                 joint_names_expr=["door_hinge"],
                 stiffness=50.0,
                 damping=10.0,
                 effort_limit=20.0,
             ),
+            # Gantry axes: locked in place (high stiffness, not robot-controlled)
+            "gantry": sim_utils.ImplicitActuatorCfg(
+                joint_names_expr=["Z-axis", "Y-axis", "X-axis"],
+                stiffness=10000.0,
+                damping=1000.0,
+                effort_limit=100.0,
+            ),
         },
     )
 
-    # ── Build Plate ───────────────────────────────────────────────────────────
+    # ── Build Plate (primitive cuboid) ───────────────────────────────────────
+    # Approximate dimensions of the P2S build plate: 256mm x 256mm x 3mm
+    # Placed inside the printer at Z-bed height.
     build_plate: RigidObjectCfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/BuildPlate",
-        spawn=UsdFileCfg(
-            usd_path=BUILD_PLATE_USD_PATH,
+        spawn=CuboidCfg(
+            size=(0.256, 0.256, 0.003),
             rigid_props=RigidBodyPropertiesCfg(kinematic_enabled=True),
+            collision_props=CollisionPropertiesCfg(),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.15, 0.15, 0.15),  # Dark build plate
+            ),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.40, 0.0, 0.18),  # 18cm above ground (inside printer)
+            pos=(0.40, 0.0, 0.16),  # Sitting on Z-bed inside printer
         ),
     )
 
-    # ── Print Object ──────────────────────────────────────────────────────────
+    # ── Print Object (primitive cylinder) ────────────────────────────────────
+    # Generic printed object: small cylinder (~40mm diameter, 30mm tall, 50g)
     print_object: RigidObjectCfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/PrintObject",
-        spawn=UsdFileCfg(
-            usd_path=PRINT_OBJECT_USD_PATH,
-            mass_props=sim_utils.MassPropertiesCfg(mass=0.05),  # 50g
+        spawn=CylinderCfg(
+            radius=0.020,
+            height=0.030,
+            rigid_props=RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                disable_gravity=False,
+            ),
+            mass_props=MassPropertiesCfg(mass=0.05),  # 50g
             collision_props=CollisionPropertiesCfg(
                 contact_offset=0.001,
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.9, 0.3, 0.1),  # Orange PLA color
             ),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(

@@ -13,6 +13,13 @@ MAX_ITER="${3:-5000}"
 PROJECT_DIR="${PROJECT_DIR:-/workspace/project}"
 OUTPUT_DIR="${OUTPUT_DIR:-/workspace/output}"
 
+# Agent cfg: default picks the matching config from sim/isaac_lab/agents/rsl_rl_cfg.py
+case "${TASK}" in
+  *OpenDoor*)  AGENT_CFG="${AGENT_CFG:-sim.isaac_lab.agents.rsl_rl_cfg:OpenDoorPPOCfg}" ;;
+  *PickPrint*) AGENT_CFG="${AGENT_CFG:-sim.isaac_lab.agents.rsl_rl_cfg:PickPrintPPOCfg}" ;;
+  *)           AGENT_CFG="${AGENT_CFG:-}" ;;
+esac
+
 # Wait for onstart to finish if still running
 if [ ! -f /opt/ready ]; then
     echo "Waiting for onstart setup to complete..."
@@ -29,12 +36,16 @@ echo "==================================================="
 mkdir -p "${OUTPUT_DIR}"/{checkpoints,logs}
 cd "${PROJECT_DIR}" && git pull --quiet
 
+AGENT_ARG=""
+[ -n "${AGENT_CFG}" ] && AGENT_ARG="--agent_cfg ${AGENT_CFG}"
+
 python -m isaaclab.app.run \
     --headless \
     --task "${TASK}" \
     --num_envs "${NUM_ENVS}" \
     --max_iterations "${MAX_ITER}" \
     --log_dir "${OUTPUT_DIR}/logs" \
-    --checkpoint_dir "${OUTPUT_DIR}/checkpoints"
+    --checkpoint_dir "${OUTPUT_DIR}/checkpoints" \
+    ${AGENT_ARG}
 
 echo "Training complete. Checkpoints at: ${OUTPUT_DIR}/checkpoints/"

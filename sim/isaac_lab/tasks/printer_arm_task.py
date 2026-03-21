@@ -7,7 +7,7 @@ Tasks:
   - OpenDoorTask: Open the P2S front door
   - PickPrintTask: Pick a finished print from the build plate
   - PlacePrintTask: Place the print at the staging area
-  - FullCycleTask: Complete open→pick→place→close cycle
+  - FullCycleTask: Complete open->pick->place->close cycle
 
 Reward shaping, termination conditions, and randomizations are defined here.
 
@@ -16,6 +16,11 @@ Usage (train with IsaacLab RSL-RL runner):
     --task PrinterArm-OpenDoor-v0 \
     --headless \
     --num_envs 256
+
+Scene layout:
+  The P2S printer is loaded as a single articulation from URDF.
+  The door_hinge joint within the printer articulation is used for
+  the door-opening task. The printer is referenced as scene["printer"].
 """
 
 from __future__ import annotations
@@ -54,7 +59,7 @@ class OpenDoorTaskCfg(DirectRLEnvCfg):
     # ── Simulation ──────────────────────────────────────────────────────────
     sim: SimulationCfg = SimulationCfg(
         dt=0.01,           # 100 Hz physics
-        render_interval=2, # Render every 2 steps → 50 Hz render
+        render_interval=2, # Render every 2 steps -> 50 Hz render
     )
 
     # ── Scene ────────────────────────────────────────────────────────────────
@@ -133,9 +138,12 @@ class OpenDoorEnv(DirectRLEnv):
     """
     Isaac Lab environment for training the door-open skill.
 
+    The P2S printer is loaded as a single articulation. The door_hinge
+    joint within the printer is the target for this task.
+
     Randomizations:
       - Initial arm pose (small joint noise)
-      - Door hinge stiffness ±10%
+      - Door hinge stiffness +/-10%
       - Lighting (point lights random intensity)
     """
 
@@ -143,13 +151,13 @@ class OpenDoorEnv(DirectRLEnv):
 
     def __init__(self, cfg: OpenDoorTaskCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
-        self._door_open_threshold = 0.7  # Radians (~40°)
+        self._door_open_threshold = 0.7  # Radians (~40 deg)
 
     def _setup_scene(self):
         """Called by base class to set up the Isaac Sim scene."""
-        # Assets are defined in scene_cfg; just get references here
         self.robot = self.scene["robot"]
-        self.door = self.scene["printer_door"]
+        # The printer is a single articulation; door_hinge is one of its joints
+        self.printer = self.scene["printer"]
         self.ee = self.scene["ee_frame"]
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
@@ -162,7 +170,10 @@ class OpenDoorEnv(DirectRLEnv):
     def _get_observations(self) -> dict:
         """Collect observations for the policy."""
         joint_pos = self.robot.data.joint_pos[:, :5]  # [N, 5] arm joints only
-        door_angle = self.door.data.joint_pos[:, :1]   # [N, 1]
+        # Get door_hinge joint angle from the printer articulation
+        # door_hinge is joint index 3 in the printer URDF
+        # (Z-axis=0, Y-axis=1, X-axis=2, door_hinge=3)
+        door_angle = self.printer.data.joint_pos[:, 3:4]  # [N, 1]
         ee_pos = self.ee.data.target_pos_w[:, 0, :3]  # [N, 3]
 
         obs = torch.cat([joint_pos, door_angle, ee_pos], dim=-1)
@@ -170,7 +181,7 @@ class OpenDoorEnv(DirectRLEnv):
 
     def _get_rewards(self) -> torch.Tensor:
         """Compute per-environment rewards."""
-        door_angle = self.door.data.joint_pos[:, 0]
+        door_angle = self.printer.data.joint_pos[:, 3]
         # Reward proportional to door opening
         reward = door_angle / self._door_open_threshold
         reward = torch.clamp(reward, 0.0, 1.0)
@@ -178,7 +189,7 @@ class OpenDoorEnv(DirectRLEnv):
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return (terminated, truncated) tensors."""
-        door_angle = self.door.data.joint_pos[:, 0]
+        door_angle = self.printer.data.joint_pos[:, 3]
         terminated = door_angle > self._door_open_threshold
         truncated = self.episode_length_buf >= self.max_episode_length
         return terminated, truncated
@@ -203,10 +214,11 @@ class OpenDoorEnv(DirectRLEnv):
             env_ids=env_ids,
         )
 
-        # Reset door to closed position
-        self.door.write_joint_state_to_sim(
-            torch.zeros(len(env_ids), 1, device=self.device),
-            torch.zeros(len(env_ids), 1, device=self.device),
+        # Reset printer joints: gantry at home, door closed
+        printer_pos = torch.zeros(len(env_ids), 4, device=self.device)
+        self.printer.write_joint_state_to_sim(
+            printer_pos,
+            torch.zeros_like(printer_pos),
             env_ids=env_ids,
         )
 
@@ -214,7 +226,7 @@ class OpenDoorEnv(DirectRLEnv):
 class PickPrintEnv(DirectRLEnv):
     """
     Isaac Lab environment for pick skill.
-    Door is assumed already open.
+    Door is assumed already open (door_hinge set to ~90 deg at reset).
     Object position is randomized on the build plate.
     """
 
@@ -229,9 +241,10 @@ class PickPrintEnv(DirectRLEnv):
         self.print_object = self.scene["print_object"]
         self.ee = self.scene["ee_frame"]
         self.build_plate = self.scene["build_plate"]
+        self.printer = self.scene["printer"]
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
-        # actions: [num_envs, 6] — 5 arm joints + 1 gripper
+        # actions: [num_envs, 6] -- 5 arm joints + 1 gripper
         joint_actions = actions[:, :5]
         gripper_action = actions[:, 5:6]
 
@@ -281,7 +294,16 @@ class PickPrintEnv(DirectRLEnv):
             return
         super()._reset_idx(env_ids)
 
-        # Randomize object position on build plate (±5cm)
+        # Set door to open position (~90 deg) for pick task
+        printer_pos = torch.zeros(len(env_ids), 4, device=self.device)
+        printer_pos[:, 3] = 1.57  # door_hinge open at ~90 deg
+        self.printer.write_joint_state_to_sim(
+            printer_pos,
+            torch.zeros_like(printer_pos),
+            env_ids=env_ids,
+        )
+
+        # Randomize object position on build plate (+/-5cm)
         base_pos = torch.tensor([0.35, 0.0, self._build_plate_z()], device=self.device)
         noise = torch.zeros(len(env_ids), 3, device=self.device)
         noise[:, :2] = sample_uniform(-0.05, 0.05, (len(env_ids), 2), device=self.device)

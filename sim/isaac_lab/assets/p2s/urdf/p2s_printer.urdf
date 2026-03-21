@@ -1,0 +1,210 @@
+<?xml version="1.0" ?>
+<!--
+  Pre-processed URDF for Bambu Lab P2S printer.
+  Generated from BAMBULAB_P2S.xacro with all includes inlined
+  and package:// mesh paths converted to relative paths.
+
+  Links: base_link, Z-bed_1, Y-axis_1, X-axis_nozzle_1, Door_1
+  Joints: Z-axis (prismatic), Y-axis (prismatic), X-axis (prismatic), door_hinge (revolute)
+
+  Mesh scale 0.001 — original meshes are in millimeters.
+-->
+<robot name="BAMBULAB_P2S">
+
+  <!-- ── Materials (inlined from materials.xacro) ────────────────────────── -->
+  <material name="silver">
+    <color rgba="0.700 0.700 0.700 1.000"/>
+  </material>
+
+  <!-- ── base_link: Static printer body ──────────────────────────────────── -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.21251632537877285 0.2681457970411163 0.30367863645273874" rpy="0 0 0"/>
+      <mass value="144.76072983211262"/>
+      <inertia ixx="6.607565" iyy="7.040119" izz="5.4012" ixy="-0.029571" iyz="0.186731" ixz="0.015142"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ── Z-bed: Build plate, moves on Z axis ─────────────────────────────── -->
+  <link name="Z-bed_1">
+    <inertial>
+      <origin xyz="0.08596271129982927 0.0918236657916594 -0.05094513028013968" rpy="0 0 0"/>
+      <mass value="10.019848039853946"/>
+      <inertia ixx="0.064602" iyy="0.080198" izz="0.144424" ixy="-8.3e-05" iyz="0.0" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.126543 -0.173367 -0.157117" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/Z-bed_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.126543 -0.173367 -0.157117" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/Z-bed_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ── Y-axis: Gantry Y motion ─────────────────────────────────────────── -->
+  <link name="Y-axis_1">
+    <inertial>
+      <origin xyz="0.062419804737599976 -0.05776411722454011 -0.07414777976544817" rpy="0 0 0"/>
+      <mass value="1.2845247547395635"/>
+      <inertia ixx="0.000542" iyy="0.022739" izz="0.022652" ixy="0.0" iyz="-0.0" ixz="-0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.15016 -0.450867 -0.554722" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/Y-axis_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.15016 -0.450867 -0.554722" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/Y-axis_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ── X-axis nozzle: Gantry X motion (child of Y-axis) ────────────────── -->
+  <link name="X-axis_nozzle_1">
+    <inertial>
+      <origin xyz="0.01995246450171534 -0.014186409462614735 -0.02101543607495132" rpy="0 0 0"/>
+      <mass value="0.675060661578604"/>
+      <inertia ixx="0.00026" iyy="0.000242" izz="0.000193" ixy="-0.0" iyz="-6e-06" ixz="-1e-06"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.08758 -0.393103 -0.501277" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/X-axis_nozzle_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.08758 -0.393103 -0.501277" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/X-axis_nozzle_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ── Door: Front door (revolute from base_link) ──────────────────────── -->
+  <link name="Door_1">
+    <inertial>
+      <origin xyz="0.08303570031679738 -0.02685731793471252 -0.06313292896757283" rpy="0 0 0"/>
+      <mass value="1.8912702022608048"/>
+      <inertia ixx="0.02213" iyy="0.03801" izz="0.015883" ixy="2.6e-05" iyz="3e-06" ixz="-8.5e-05"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.13216 -0.080867 -0.348717" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/Door_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.13216 -0.080867 -0.348717" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/Door_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ── Joints ──────────────────────────────────────────────────────────── -->
+
+  <joint name="Z-axis" type="prismatic">
+    <origin xyz="0.126543 0.173367 0.157117" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="Z-bed_1"/>
+    <axis xyz="0.0 0.0 -1.0"/>
+    <limit upper="0.0" lower="-0.31" effort="100" velocity="100"/>
+  </joint>
+
+  <joint name="Y-axis" type="prismatic">
+    <origin xyz="0.15016 0.450867 0.554722" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="Y-axis_1"/>
+    <axis xyz="0.0 1.0 0.0"/>
+    <limit upper="0.0" lower="-0.25" effort="100" velocity="100"/>
+  </joint>
+
+  <joint name="X-axis" type="prismatic">
+    <origin xyz="-0.06258 -0.057764 -0.053445" rpy="0 0 0"/>
+    <parent link="Y-axis_1"/>
+    <child link="X-axis_nozzle_1"/>
+    <axis xyz="-1.0 0.0 0.0"/>
+    <limit upper="0.0" lower="-0.21" effort="100" velocity="100"/>
+  </joint>
+
+  <!-- Door hinge — renamed from "Revolute 8" for cleaner referencing -->
+  <joint name="door_hinge" type="revolute">
+    <origin xyz="0.13216 0.080867 0.348717" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="Door_1"/>
+    <axis xyz="0.0 0.0 -1.0"/>
+    <limit upper="3.141593" lower="0.0" effort="100" velocity="100"/>
+  </joint>
+
+  <!-- ── Transmissions (inlined from BAMBULAB_P2S.trans) ──────────────────── -->
+
+  <transmission name="Z-axis_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="Z-axis">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="Z-axis_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <transmission name="Y-axis_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="Y-axis">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="Y-axis_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <transmission name="X-axis_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="X-axis">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="X-axis_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <transmission name="door_hinge_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="door_hinge">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="door_hinge_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+</robot>
