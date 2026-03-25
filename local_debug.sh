@@ -12,8 +12,8 @@
 # Default task: open_door
 #
 # Output:
-#   - Starts the simulation container in watch mode.
-#   - Opens a VNC stream on http://localhost:6080/vnc.html
+#   - Starts the simulation container with direct display rendering.
+#   - Isaac Sim window appears on your monitor (no VNC needed).
 #   - Very low resource usage compared to training.
 #
 # =============================================================================
@@ -23,29 +23,25 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TASK="${1:-open_door}"
 
-# Install requirements if present
-if [ -f "${SCRIPT_DIR}/requirements.txt" ]; then
-    echo "Installing requirements..."
-    pip install --quiet -r "${SCRIPT_DIR}/requirements.txt"
-    echo ""
-fi
-
 echo "==================================================================="
-echo "  Local Debug Mode (Single Env)"
+echo "  Local Debug Mode (Single Env, Direct Display)"
 echo "==================================================================="
 echo "  Task:      ${TASK}"
 echo "  GPU:       Local (RTX 2070 Target)"
-echo "  View:      http://localhost:6080/vnc.html"
+echo "  View:      Direct on host monitor"
 echo "==================================================================="
 echo ""
 
+# Allow Docker containers to access host X11 display
+xhost +local:docker 2>/dev/null || echo "WARNING: xhost not available, X11 forwarding may fail."
+
 # Execute the existing run_sim.sh with override parameters
-# --watch: Enables VNC
+# --display: Renders directly on host monitor (X11 passthrough)
 # --num-envs 1: Single environment for maximum performance/clarity
 # --profile local: Uses local defaults as base
 
 ./run_sim.sh \
     --profile local \
     --task "${TASK}" \
-    --watch \
+    --display \
     --num-envs 1

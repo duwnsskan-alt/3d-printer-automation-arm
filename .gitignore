@@ -19,6 +19,9 @@ output/
 *.env
 config/certs/
 
+# Isaac Sim shader/runtime cache (persisted between container runs)
+.cache/
+
 # Isaac Lab / Isaac Sim artifacts
 _isaac_sim/
 *.usd

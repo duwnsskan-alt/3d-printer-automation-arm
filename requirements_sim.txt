@@ -1,0 +1,9 @@
+# ============================================================
+# Simulation-only dependencies (safe inside Isaac Sim container)
+# ============================================================
+# Do NOT add torch, torchvision, or numpy here — Isaac Sim
+# bundles its own versions and overwriting them breaks the sim.
+# ============================================================
+
+gymnasium>=0.29.0
+PyYAML>=6.0

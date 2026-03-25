@@ -90,19 +90,19 @@
 
 <link name="Door_1">
   <inertial>
-    <origin xyz="0.08303570031679738 -0.02685731793471252 -0.06313292896757283" rpy="0 0 0"/>
+    <origin xyz="0.03 -0.03 0" rpy="0 0 0"/>
     <mass value="1.8912702022608048"/>
     <inertia ixx="0.02213" iyy="0.03801" izz="0.015883" ixy="2.6e-05" iyz="3e-06" ixz="-8.5e-05"/>
   </inertial>
   <visual>
-    <origin xyz="-0.13216 -0.080867 -0.348717" rpy="0 0 0"/>
+    <origin xyz="0.03 -0.03 0" rpy="0 0 0"/>
     <geometry>
       <mesh filename="package://BAMBULAB_P2S_description/meshes/Door_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="silver"/>
   </visual>
   <collision>
-    <origin xyz="-0.13216 -0.080867 -0.348717" rpy="0 0 0"/>
+    <origin xyz="0.03 -0.03 0" rpy="0 0 0"/>
     <geometry>
       <mesh filename="package://BAMBULAB_P2S_description/meshes/Door_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
@@ -134,7 +134,7 @@
 </joint>
 
 <joint name="Revolute 8" type="revolute">
-  <origin xyz="0.13216 0.080867 0.348717" rpy="0 0 0"/>
+  <origin xyz="-0.03 0.03 0" rpy="0 0 0"/>
   <parent link="base_link"/>
   <child link="Door_1"/>
   <axis xyz="-0.0 -0.0 -1.0"/>

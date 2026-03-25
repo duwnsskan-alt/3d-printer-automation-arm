@@ -1,0 +1,17 @@
+[package]
+version = "0.1.0"
+title = "Printer Arm Tasks"
+description = "Isaac Lab environments for 3D printer automation arm (open door, pick print)."
+repository = "https://github.com/yeojun/3d-printer-automation-arm"
+category = "robotics"
+keywords = ["robotics", "rl", "3d-printing", "automation"]
+
+[dependencies]
+"isaaclab" = {}
+"isaaclab_assets" = {}
+
+[core]
+reloadable = false
+
+[[python.module]]
+name = "printer_arm_tasks"

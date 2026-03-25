@@ -14,7 +14,7 @@ Pillow>=10.0.0
 PyYAML>=6.0
 
 # ─── Robot Control ──────────────────────────────────────────
-scservo-sdk>=1.0.0
+feetech-servo-sdk>=1.0.0
 pyserial>=3.5
 
 # ─── LeRobot / VLA ─────────────────────────────────────────

@@ -37,6 +37,7 @@ DOCKER_DIR="${SCRIPT_DIR}/infra/docker"
 PROFILE="local"
 TASK="open_door"
 WATCH=false
+DISPLAY_MODE=false
 LOAD_URDF=false
 LOAD_SCENE=false
 MAX_ITER=""
@@ -55,6 +56,7 @@ Options:
   --profile <local|cloud>   Environment profile (default: local)
   --task <open_door|pick_print>  Task to run (default: open_door)
   --watch                   Enable VNC rendering (opens browser)
+  --display                 Render directly on host monitor (X11 passthrough)
   --num-envs <N>            Override number of environments
   --max-iter <N>            Override max training iterations
   --load-urdf               Load SO-100 URDF viewer (watch mode, no RL)
@@ -71,6 +73,7 @@ while [[ $# -gt 0 ]]; do
         --profile)   PROFILE="$2"; shift 2 ;;
         --task)      TASK="$2"; shift 2 ;;
         --watch)     WATCH=true; shift ;;
+        --display)   DISPLAY_MODE=true; shift ;;
         --load-urdf) LOAD_URDF=true; WATCH=true; shift ;;
         --load-scene) LOAD_SCENE=true; WATCH=true; shift ;;
         --num-envs)  OVERRIDE_NUM_ENVS="$2"; shift 2 ;;
@@ -80,6 +83,14 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; print_usage; exit 1 ;;
     esac
 done
+
+# ─── Validate conflicting options ────────────────────────────────────────────
+if [ "${WATCH}" = true ] && [ "${DISPLAY_MODE}" = true ]; then
+    echo "ERROR: --watch and --display are mutually exclusive."
+    echo "  --watch:   renders via VNC (for remote/cloud)"
+    echo "  --display: renders on host monitor (for local desktop)"
+    exit 1
+fi
 
 # ─── Resolve task → gym ID ───────────────────────────────────────────────────
 case "${TASK}" in
@@ -115,6 +126,7 @@ echo "==================================================================="
 echo "  Profile:   ${PROFILE} (${NUM_ENVS} envs)"
 echo "  Task:      ${TASK} (${GYM_ID})"
 echo "  Watch:     ${WATCH}"
+echo "  Display:   ${DISPLAY_MODE}"
 echo "  Max iter:  ${MAX_ITER}"
 echo "  Output:    ${OUTPUT_DIR}"
 echo "==================================================================="
@@ -177,6 +189,9 @@ echo "[4/4] Starting container..."
 echo ""
 
 # Build docker run command
+CACHE_DIR="${SCRIPT_DIR}/.cache/isaac-sim"
+mkdir -p "${CACHE_DIR}"
+
 DOCKER_ARGS=(
     docker run
     --rm
@@ -191,6 +206,12 @@ DOCKER_ARGS=(
     -v "${SCRIPT_DIR}:/workspace/project:ro"
     # Mount output directory (read-write for checkpoints/logs)
     -v "${OUTPUT_DIR}:/workspace/output"
+    # Persist shader cache between container runs (first compile ~30-60min)
+    -v "${CACHE_DIR}/cache/kit:/root/.cache/kit"
+    -v "${CACHE_DIR}/cache/ov:/root/.cache/ov"
+    -v "${CACHE_DIR}/cache/pip:/root/.cache/pip"
+    -v "${CACHE_DIR}/nv:/root/.nv"
+    -v "${CACHE_DIR}/nvidia/GLCache:/root/.nvidia/GLCache"
     # Environment variables
     -e "PROJECT_ROOT=/workspace/project"
     -e "OUTPUT_DIR=/workspace/output"
@@ -202,7 +223,32 @@ if [ -f "${SCRIPT_DIR}/requirements.txt" ]; then
    echo "[3.5/4] Found requirements.txt. It will be installed inside the container."
 fi
 
-if [ "${LOAD_URDF}" = true ]; then
+if [ "${DISPLAY_MODE}" = true ]; then
+    # Direct display mode: X11 passthrough to host monitor
+    DOCKER_ARGS+=(
+        -e "DISPLAY=${DISPLAY}"
+        -v /tmp/.X11-unix:/tmp/.X11-unix
+        -e "SIM_MODE=display"
+    )
+
+    if [ "${LOAD_SCENE}" = true ]; then
+        DOCKER_ARGS+=(-e "SIM_SCRIPT=/workspace/project/sim/isaac_lab/load_scene_standalone.py")
+        SIM_ARGS=()
+        echo "  Scene viewer (direct display): P2S printer + SO-100 robot arm."
+    elif [ "${LOAD_URDF}" = true ]; then
+        DOCKER_ARGS+=(-e "SIM_SCRIPT=/workspace/project/sim/isaac_lab/load_so100_standalone.py")
+        SIM_ARGS=()
+        echo "  URDF viewer (direct display): loading SO-100 robot arm."
+    else
+        SIM_ARGS=(
+            --task "${GYM_ID}"
+            --num_envs "${NUM_ENVS}"
+        )
+    fi
+
+    echo "  Rendering directly on host display: ${DISPLAY}"
+    echo ""
+elif [ "${LOAD_URDF}" = true ]; then
     # URDF viewer mode: load robot arm with VNC
     DOCKER_ARGS+=(
         -e "SIM_MODE=watch"
