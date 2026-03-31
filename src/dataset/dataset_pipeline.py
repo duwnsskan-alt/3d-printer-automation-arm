@@ -74,7 +74,7 @@ class DatasetPipeline:
     def merge_datasets(
         self,
         sim_dir: str | Path,
-        teleop_dir: str | Path,
+        teleop_dir: str | Path | None,
         output_dir: str | Path,
     ) -> None:
         """
@@ -88,7 +88,7 @@ class DatasetPipeline:
         import pandas as pd
 
         sim_dir = Path(sim_dir)
-        teleop_dir = Path(teleop_dir)
+        teleop_dir = Path(teleop_dir) if teleop_dir else None
         output_dir = Path(output_dir)
 
         log.info("Merging datasets: sim=%s, teleop=%s → %s", sim_dir, teleop_dir, output_dir)
@@ -102,7 +102,7 @@ class DatasetPipeline:
 
         # Load sim episodes
         sim_episodes = list(sim_dir.glob("episode_*.npz")) if sim_dir.exists() else []
-        teleop_episodes = list(teleop_dir.glob("episode_*.npz")) if teleop_dir.exists() else []
+        teleop_episodes = list(teleop_dir.glob("episode_*.npz")) if teleop_dir and teleop_dir.exists() else []
 
         log.info("Found %d sim episodes, %d teleop episodes", len(sim_episodes), len(teleop_episodes))
 

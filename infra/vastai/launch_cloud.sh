@@ -32,6 +32,8 @@ NUM_ENVS=256
 MAX_ITER=5000
 DRY_RUN=false
 WATCH=false
+GPU_TYPE=""         # a10g, a100, h100 — empty=any
+EXPORT_EPISODES=0   # 0=skip export, >0=export N episodes after training
 
 # ─── Parse arguments ─────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -44,9 +46,12 @@ while [[ $# -gt 0 ]]; do
         --disk)      DISK_GB="$2"; shift 2 ;;
         --watch)     WATCH=true; shift ;;
         --dry-run)   DRY_RUN=true; shift ;;
+        --gpu-type)  GPU_TYPE="$2"; shift 2 ;;
+        --export)    EXPORT_EPISODES="$2"; shift 2 ;;
         -h|--help)
             echo "Usage: $0 [--task open_door|pick_print] [--gpus N] [--budget X.XX]"
             echo "       [--num-envs N] [--max-iter N] [--disk GB] [--watch] [--dry-run]"
+            echo "       [--gpu-type a10g|a100|h100] [--export NUM_EPISODES]"
             exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -59,8 +64,8 @@ case "${TASK}" in
     *)           echo "ERROR: Unknown task '${TASK}'"; exit 1 ;;
 esac
 
-# Scale envs with GPU count for multi-GPU runs
-TOTAL_ENVS=$((NUM_ENVS * NUM_GPUS))
+# NUM_ENVS is the total count — Isaac Lab distributes across GPUs automatically
+TOTAL_ENVS=${NUM_ENVS}
 
 # ─── Check vastai CLI ────────────────────────────────────────────────────────
 if ! command -v vastai &>/dev/null; then
@@ -81,26 +86,35 @@ echo "==================================================================="
 echo "  Vast.ai Cloud Training Launcher"
 echo "==================================================================="
 echo "  Task:       ${TASK} (${GYM_ID})"
-echo "  GPUs:       ${NUM_GPUS}"
-echo "  Envs:       ${TOTAL_ENVS} (${NUM_ENVS} per GPU x ${NUM_GPUS})"
+echo "  GPUs:       ${NUM_GPUS} (${GPU_TYPE:-any})"
+echo "  Envs:       ${TOTAL_ENVS} (distributed across ${NUM_GPUS} GPUs)"
 echo "  Max iter:   ${MAX_ITER}"
 echo "  Budget:     \$${MAX_BUDGET}/hr"
 echo "  Disk:       ${DISK_GB} GB"
+if [ "${EXPORT_EPISODES}" -gt 0 ]; then
+echo "  Export:     ${EXPORT_EPISODES} episodes → LeRobot format"
+fi
 echo "==================================================================="
 echo ""
 
-# Build search query based on GPU count
-if [ "${NUM_GPUS}" -ge 4 ]; then
-    # Multi-GPU: look for A100 or H100
-    GPU_QUERY="num_gpus>=${NUM_GPUS} gpu_ram>=40 rentable=True verified=True dph<${MAX_BUDGET} disk_space>${DISK_GB}"
-    echo "Searching for ${NUM_GPUS}+ GPU instances (A100/H100) under \$${MAX_BUDGET}/hr..."
-elif [ "${NUM_GPUS}" -ge 2 ]; then
-    GPU_QUERY="num_gpus>=${NUM_GPUS} gpu_ram>=20 rentable=True verified=True dph<${MAX_BUDGET} disk_space>${DISK_GB}"
-    echo "Searching for ${NUM_GPUS}+ GPU instances under \$${MAX_BUDGET}/hr..."
-else
-    GPU_QUERY="num_gpus=1 gpu_ram>=20 rentable=True verified=True dph<${MAX_BUDGET} disk_space>${DISK_GB}"
-    echo "Searching for single GPU instances under \$${MAX_BUDGET}/hr..."
-fi
+# Build search query based on GPU count and type
+MIN_VRAM=20  # GB, default
+GPU_NAME_FILTER=""
+
+case "${GPU_TYPE}" in
+    a10g|A10G)   GPU_NAME_FILTER="gpu_name=A10G"; MIN_VRAM=20 ;;
+    a100|A100)   GPU_NAME_FILTER="gpu_name=A100"; MIN_VRAM=40 ;;
+    h100|H100)   GPU_NAME_FILTER="gpu_name=H100"; MIN_VRAM=40 ;;
+    "")          # Auto: require higher VRAM for 4+ GPUs without explicit type
+                 [ "${NUM_GPUS}" -ge 4 ] && MIN_VRAM=20 ;;
+    *)           echo "ERROR: Unknown GPU type '${GPU_TYPE}'. Use: a10g, a100, h100"; exit 1 ;;
+esac
+
+GPU_QUERY="num_gpus>=${NUM_GPUS} gpu_ram>=${MIN_VRAM} rentable=True verified=True dph<${MAX_BUDGET} disk_space>${DISK_GB}"
+[ -n "${GPU_NAME_FILTER}" ] && GPU_QUERY="${GPU_NAME_FILTER} ${GPU_QUERY}"
+
+GPU_LABEL="${GPU_TYPE:-any}"
+echo "Searching for ${NUM_GPUS}x GPU (${GPU_LABEL}, >=${MIN_VRAM}GB VRAM) under \$${MAX_BUDGET}/hr..."
 
 echo ""
 vastai search offers "${GPU_QUERY}" --order "dph asc" --limit 10
@@ -138,8 +152,11 @@ echo "  Selected offer ID: ${OFFER_ID}"
 echo ""
 
 # ─── Build onstart command ───────────────────────────────────────────────────
-# The onstart script runs inside the container at startup.
-# We inline it here with task-specific parameters.
+# The onstart script sets up the environment, then delegates to train_and_export.sh.
+# Task-specific parameters are passed via environment variables.
+EXPORT_FLAG=""
+[ "${EXPORT_EPISODES}" -gt 0 ] && EXPORT_FLAG="--episodes ${EXPORT_EPISODES}"
+
 ONSTART_CMD=$(cat <<ONSTART_EOF
 #!/bin/bash
 set -e
@@ -157,28 +174,33 @@ git clone --depth=1 https://github.com/novnc/websockify.git /opt/noVNC/utils/web
 # Project
 git clone https://github.com/duwnsskan-alt/3d-printer-automation-arm.git /workspace/project
 
-mkdir -p /workspace/output/{checkpoints,logs}
+mkdir -p /workspace/output/{checkpoints,logs,episodes,lerobot_dataset}
 chmod +x /workspace/project/infra/scripts/*.sh
+chmod +x /workspace/project/infra/vastai/*.sh
 
 # Set environment
-export PROJECT_ROOT=/workspace/project
+export PROJECT_DIR=/workspace/project
 export OUTPUT_DIR=/workspace/output
 export PYTHONPATH=/workspace/project
+
+# Install dependencies
+cd /workspace/project
+if [ -f requirements.txt ]; then
+    pip install -q -r requirements.txt
+fi
 
 echo "=== onstart complete: \$(date) ==="
 touch /opt/ready
 
-# Auto-start training
-cd /workspace/project
-python -m isaaclab.app.run \\
-    --headless \\
-    --task ${GYM_ID} \\
-    --num_envs ${TOTAL_ENVS} \\
-    --max_iterations ${MAX_ITER} \\
-    --log_dir /workspace/output/logs \\
-    --checkpoint_dir /workspace/output/checkpoints \\
-    --agent_cfg ${AGENT_CFG} \\
+# Launch train + export pipeline
+/workspace/project/infra/scripts/train_and_export.sh \\
+    --task ${TASK} \\
+    --num-envs ${TOTAL_ENVS} \\
+    --max-iter ${MAX_ITER} \\
+    ${EXPORT_FLAG} \\
     >> /var/log/training.log 2>&1 &
+
+echo "Pipeline started (PID: \$!)"
 ONSTART_EOF
 )
 

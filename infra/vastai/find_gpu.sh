@@ -6,6 +6,7 @@
 #   ./find_gpu.sh                    # Single GPU, <$0.50/hr
 #   ./find_gpu.sh --budget 2.00      # Single GPU, <$2.00/hr
 #   ./find_gpu.sh --gpus 4           # 4x GPU for 10k+ env scale-up
+#   ./find_gpu.sh --gpus 4 --a10g    # 4x A10G for 256-env training
 #   ./find_gpu.sh --gpus 8 --a100    # 8x A100 for maximum throughput
 #
 # Setup (one-time):
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --budget) MAX_PRICE="$2"; shift 2 ;;
         --gpus)   NUM_GPUS="$2"; shift 2 ;;
+        --a10g)   GPU_FILTER="gpu_name=A10G"; shift ;;
         --a100)   GPU_FILTER="gpu_name=A100"; shift ;;
         --h100)   GPU_FILTER="gpu_name=H100"; shift ;;
         *)        MAX_PRICE="${1}"; shift ;;
