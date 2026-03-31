@@ -1,0 +1,32 @@
+# Cloudflare Tunnel config for sim dashboard access.
+#
+# This replaces SSH tunneling with a Cloudflare Tunnel, giving you a
+# stable HTTPS URL (e.g. https://sim.yourdomain.com) without opening
+# any inbound ports on the cloud instance.
+#
+# Setup:
+#   1. Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+#   2. Authenticate: cloudflared tunnel login
+#   3. Create tunnel: cloudflared tunnel create isaac-sim
+#   4. Copy the tunnel ID and credentials file path below
+#   5. Add DNS route: cloudflared tunnel route dns isaac-sim sim.yourdomain.com
+#
+# The tunnel points at the nginx CORS proxy (port 6090), NOT directly
+# at noVNC (port 6080), so CORS headers are always present.
+
+tunnel: TUNNEL_ID_HERE
+credentials-file: /root/.cloudflared/TUNNEL_ID_HERE.json
+
+ingress:
+  # Sim dashboard — proxied through nginx for CORS headers
+  - hostname: sim.yourdomain.com
+    service: http://localhost:6090
+    originRequest:
+      # Allow WebSocket upgrades for noVNC
+      noTLSVerify: false
+      connectTimeout: 30s
+      # Keep VNC sessions alive
+      tcpKeepAlive: 30s
+
+  # Catch-all (required by cloudflared)
+  - service: http_status:404

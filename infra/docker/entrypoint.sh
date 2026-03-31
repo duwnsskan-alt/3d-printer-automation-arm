@@ -64,11 +64,23 @@ python3 /opt/noVNC/utils/websockify/run \
     "localhost:${VNC_PORT}" &
 sleep 1
 
+# ── Step 5 (optional): Nginx CORS proxy for Cloudflare Tunnel ────────────────
+if [ "${ENABLE_TUNNEL:-0}" = "1" ]; then
+    echo "[5/5] Starting nginx CORS proxy on port 6090..."
+    nginx
+    echo "      nginx ready — Cloudflare Tunnel can connect to :6090"
+fi
+
 echo ""
 echo "======================================================="
 echo "  Display stack ready!"
-echo "  1. Run locally: ./infra/scripts/connect_vnc.sh"
-echo "  2. Open browser: http://localhost:6080/vnc.html"
+if [ "${ENABLE_TUNNEL:-0}" = "1" ]; then
+    echo "  Tunnel mode: nginx CORS proxy on :6090"
+    echo "  Run cloudflared to expose via tunnel"
+else
+    echo "  1. Run locally: ./infra/scripts/connect_vnc.sh"
+    echo "  2. Open browser: http://localhost:6080/vnc.html"
+fi
 echo "======================================================="
 echo ""
 

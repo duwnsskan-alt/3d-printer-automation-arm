@@ -16,7 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openbox \
     xterm \
     git \
+    nginx \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# ── Nginx CORS proxy config (for Cloudflare Tunnel access) ──────────────────
+COPY nginx-cors-proxy.conf /etc/nginx/sites-available/novnc-cors.conf
+RUN ln -sf /etc/nginx/sites-available/novnc-cors.conf /etc/nginx/sites-enabled/ \
+    && rm -f /etc/nginx/sites-enabled/default
 
 # noVNC + websockify (browser-based VNC proxy)
 RUN git clone --depth=1 https://github.com/novnc/noVNC.git /opt/noVNC \
