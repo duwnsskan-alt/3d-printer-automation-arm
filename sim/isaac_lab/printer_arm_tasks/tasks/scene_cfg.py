@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.assets import ArticulationCfg, RigidObjectCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from isaaclab.sim.spawners.from_files import UrdfFileCfg
@@ -74,6 +74,7 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
         spawn=UrdfFileCfg(
             asset_path=SO100_RAIL_URDF_PATH,
             fix_base=True,
+            merge_fixed_joints=False,
             joint_drive=UrdfConverterCfg.JointDriveCfg(
                 gains=UrdfConverterCfg.JointDriveCfg.PDGainsCfg(
                     stiffness=400.0, damping=40.0
@@ -93,14 +94,17 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
             ),
         ),
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.0, 0.0, 0.0),
+            # rail_base centered at world (0.3, 0, 0) so rail range = [0, 0.6]
+            pos=(0.3, 0.0, 0.0),
+            # 180° rotation about Z so robot faces +Y toward printer
+            rot=(0.0, 0.0, 0.0, 1.0),
             joint_pos={
                 "rail_slide":    0.0,
                 "shoulder_pan":  0.0,
-                "shoulder_lift": 0.5,
-                "elbow_flex":   -1.0,
+                "shoulder_lift": 1.0,
+                "elbow_flex":   -1.5,
                 "wrist_flex":    0.0,
-                "wrist_roll":    0.5,
+                "wrist_roll":    0.0,
                 "gripper":       0.0,
             },
         ),
@@ -118,16 +122,16 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
                     "wrist_flex", "wrist_roll",
                 ],
                 velocity_limit=3.14,
-                effort_limit=10.0,
-                stiffness=400.0,
-                damping=40.0,
+                effort_limit=80.0,   # boosted to hold arm against gravity reliably
+                stiffness=2000.0,
+                damping=200.0,
             ),
             "gripper": ImplicitActuatorCfg(
                 joint_names_expr=["gripper"],
                 velocity_limit=0.5,
-                effort_limit=5.0,
-                stiffness=200.0,
-                damping=20.0,
+                effort_limit=20.0,
+                stiffness=500.0,
+                damping=50.0,
             ),
         },
     )
@@ -138,6 +142,7 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
         spawn=UrdfFileCfg(
             asset_path=P2S_URDF_PATH,
             fix_base=True,
+            merge_fixed_joints=False,
             joint_drive=UrdfConverterCfg.JointDriveCfg(
                 gains=UrdfConverterCfg.JointDriveCfg.PDGainsCfg(
                     stiffness=50.0, damping=10.0
@@ -155,7 +160,8 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
             ),
         ),
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.40, 0.0, 0.0),
+            # Printer shifted +Y 10cm from original (volume center now world (0, 0.4, 0)).
+            pos=(-0.135, 0.184, 0.0),
             joint_pos={
                 "Z_axis": 0.0,
                 "Y_axis": 0.0,
@@ -168,10 +174,16 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
                 joint_names_expr=["door_hinge"],
                 stiffness=50.0,
                 damping=10.0,
-                effort_limit=20.0,
+                effort_limit=0.0,
             ),
-            "gantry": ImplicitActuatorCfg(
-                joint_names_expr=["Z_axis", "Y_axis", "X_axis"],
+            "z_bed": ImplicitActuatorCfg(
+                joint_names_expr=["Z_axis"],
+                stiffness=100000.0,
+                damping=1000.0,
+                effort_limit=1000.0,
+            ),
+            "gantry_xy": ImplicitActuatorCfg(
+                joint_names_expr=["Y_axis", "X_axis"],
                 stiffness=10000.0,
                 damping=1000.0,
                 effort_limit=100.0,
@@ -180,6 +192,7 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
     )
 
     # ── Build Plate ───────────────────────────────────────────────────────────
+    # Z_bed_1 surface (new printer pos): world (0, 0.331, 0.054)
     build_plate: RigidObjectCfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/BuildPlate",
         spawn=CuboidCfg(
@@ -191,7 +204,7 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
             ),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.40, 0.0, 0.16),
+            pos=(0.0, 0.431, 0.054),
         ),
     )
 
@@ -212,11 +225,13 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
             ),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.40, 0.0, 0.19),
+            pos=(0.0, 0.431, 0.085),
         ),
     )
 
     # ── Staging Area (print placement target) ─────────────────────────────────
+    # Robot at world (0.3, 0, 0), rail X range 0~0.6. Staging on robot's -Y side
+    # within reach when robot is at any rail position.
     staging_area: RigidObjectCfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/StagingArea",
         spawn=CuboidCfg(
@@ -228,7 +243,49 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
             ),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.0, -0.3, 0.0),
+            pos=(0.3, -0.25, 0.0),
+        ),
+    )
+
+    # ── Ambient Dome Light (scene-wide illumination for RL viewport) ──────────
+    dome_light: AssetBaseCfg = AssetBaseCfg(
+        prim_path="/World/envs/env_.*/DomeLight",
+        spawn=sim_utils.DomeLightCfg(
+            intensity=400.0,
+            color=(0.95, 0.95, 1.0),
+        ),
+    )
+
+    # ── Distant key light (directional sun-like illumination) ─────────────────
+    distant_light: AssetBaseCfg = AssetBaseCfg(
+        prim_path="/World/envs/env_.*/DistantLight",
+        spawn=sim_utils.DistantLightCfg(
+            intensity=200.0,
+            color=(1.0, 0.98, 0.95),
+            angle=5.0,
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(
+            rot=(0.924, 0.0, 0.383, 0.0),
+        ),
+    )
+
+    # ── Printer Interior Lights ───────────────────────────────────────────────
+    # Mounted under URDF light_l_link / light_r_link (children of Printer/base_link),
+    # so they follow the printer transform automatically.
+    interior_light_l: AssetBaseCfg = AssetBaseCfg(
+        prim_path="/World/envs/env_.*/Printer/light_l_link/Light",
+        spawn=sim_utils.SphereLightCfg(
+            intensity=10000.0,
+            radius=0.02,
+            color=(1.0, 0.95, 0.85),
+        ),
+    )
+    interior_light_r: AssetBaseCfg = AssetBaseCfg(
+        prim_path="/World/envs/env_.*/Printer/light_r_link/Light",
+        spawn=sim_utils.SphereLightCfg(
+            intensity=10000.0,
+            radius=0.02,
+            color=(1.0, 0.95, 0.85),
         ),
     )
 
@@ -259,22 +316,22 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
     )
 
     # ── Wrist Camera ──────────────────────────────────────────────────────────
-    # Disabled by default for state-based RL. Enable for vision tasks.
-    # wrist_camera: CameraCfg = CameraCfg(
-    #     prim_path="/World/envs/env_.*/Robot/wrist_camera_link/WristCam",
-    #     update_period=0.0,
-    #     height=200,
-    #     width=200,
-    #     data_types=["rgb", "distance_to_image_plane"],
-    #     spawn=sim_utils.PinholeCameraCfg(
-    #         focal_length=8.0,
-    #         focus_distance=0.15,
-    #         horizontal_aperture=20.955,
-    #         clipping_range=(0.01, 1.5),
-    #     ),
-    #     offset=CameraCfg.OffsetCfg(
-    #         pos=(0.0, 0.0, 0.0),
-    #         rot=(1.0, 0.0, 0.0, 0.0),
-    #         convention="ros",
-    #     ),
-    # )
+    # Mounted on wrist_camera_link (fixed joint on gripper; URDF tilt rpy="0 0.52 0").
+    wrist_camera: CameraCfg = CameraCfg(
+        prim_path="/World/envs/env_.*/Robot/gripper_camera_link/WristCam",
+        update_period=0.0,
+        height=200,
+        width=200,
+        data_types=["rgb", "distance_to_image_plane"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=8.0,
+            focus_distance=0.15,
+            horizontal_aperture=20.955,
+            clipping_range=(0.01, 1.5),
+        ),
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.0, 0.0, 0.0),
+            rot=(1.0, 0.0, 0.0, 0.0),
+            convention="ros",
+        ),
+    )

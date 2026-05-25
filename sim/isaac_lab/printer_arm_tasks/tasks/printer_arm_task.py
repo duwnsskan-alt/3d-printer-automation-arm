@@ -110,8 +110,50 @@ class _PrinterArmBase(DirectRLEnv):
         self.print_object = self.scene["print_object"]
         self.build_plate = self.scene["build_plate"]
         self.staging_area = self.scene["staging_area"]
-        light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.9, 0.9, 1.0))
-        light_cfg.func("/World/Light", light_cfg)
+        self._apply_pbr_materials()
+
+    def _apply_pbr_materials(self):
+        """Override default Isaac Lab URDF materials with PBR shaders so the
+        printer body/door/bed/marker render correctly in RL viewport."""
+        from pxr import UsdShade, Sdf, Gf
+        import omni.usd
+        stage = omni.usd.get_context().get_stage()
+
+        def make_mat(path, color, opacity=1.0, metallic=0.0, roughness=0.5):
+            mat = UsdShade.Material.Define(stage, path)
+            shader = UsdShade.Shader.Define(stage, f"{path}/Shader")
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+            shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(opacity)
+            shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(metallic)
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
+            if opacity < 1.0:
+                shader.CreateInput("ior", Sdf.ValueTypeNames.Float).Set(1.5)
+            mat.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
+            return mat
+
+        def bind(prim_path, material):
+            # Bind on the link prim itself AND its "visuals" child subtree,
+            # because Isaac Lab URDF importer puts meshes under <link>/visuals.
+            for p in [prim_path, f"{prim_path}/visuals"]:
+                prim = stage.GetPrimAtPath(p)
+                if prim.IsValid():
+                    UsdShade.MaterialBindingAPI.Apply(prim)
+                    UsdShade.MaterialBindingAPI(prim).Bind(material)
+
+        gray = make_mat("/World/Looks/PrinterBody", (0.5, 0.5, 0.5), metallic=0.2, roughness=0.6)
+        brown = make_mat("/World/Looks/BuildPlate", (0.55, 0.35, 0.15), roughness=0.7)
+        glass = make_mat("/World/Looks/Door", (0.75, 0.85, 0.95), opacity=0.3, metallic=0.0, roughness=0.05)
+        red = make_mat("/World/Looks/Marker", (1.0, 0.0, 0.0), roughness=0.4)
+
+        for env_idx in range(self.scene.num_envs):
+            base = f"/World/envs/env_{env_idx}/Printer"
+            bind(f"{base}/base_link", gray)
+            bind(f"{base}/Y_axis_1", gray)
+            bind(f"{base}/X_axis_nozzle_1", gray)
+            bind(f"{base}/Z_bed_1", brown)
+            bind(f"{base}/Door_1", glass)
+            bind(f"{base}/door_handle_marker", red)
 
     # ── Action helpers ────────────────────────────────────────────────────────
 

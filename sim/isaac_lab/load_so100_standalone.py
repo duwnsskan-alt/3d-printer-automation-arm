@@ -55,6 +55,18 @@ def main():
 
     print(f"SO-100 imported at: {prim_path}")
 
+    # Attach wrist camera (from shared spec)
+    import sys
+    sys.path.insert(0, "/workspace/project/sim/isaac_lab")
+    from so100_utils import attach_wrist_camera
+    stage = omni.usd.get_context().get_stage()
+    # Find the robot root prim (URDF default prim)
+    for top in stage.GetPseudoRoot().GetChildren():
+        for child in top.GetChildren():
+            if child.GetTypeName() == "Xform" and child.GetName() in ("rail_base", "base"):
+                attach_wrist_camera(stage, top.GetPath().pathString)
+                break
+
     # Set camera to view the robot
     set_camera_view(
         eye=np.array([0.5, 0.5, 0.4]),

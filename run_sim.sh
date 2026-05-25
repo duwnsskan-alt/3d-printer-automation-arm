@@ -74,8 +74,8 @@ while [[ $# -gt 0 ]]; do
         --task)      TASK="$2"; shift 2 ;;
         --watch)     WATCH=true; shift ;;
         --display)   DISPLAY_MODE=true; shift ;;
-        --load-urdf) LOAD_URDF=true; WATCH=true; shift ;;
-        --load-scene) LOAD_SCENE=true; WATCH=true; shift ;;
+        --load-urdf) LOAD_URDF=true; shift ;;
+        --load-scene) LOAD_SCENE=true; shift ;;
         --num-envs)  OVERRIDE_NUM_ENVS="$2"; shift 2 ;;
         --max-iter)  MAX_ITER="$2"; shift 2 ;;
         --rebuild)   REBUILD=true; shift ;;
@@ -243,6 +243,7 @@ if [ "${DISPLAY_MODE}" = true ]; then
         SIM_ARGS=(
             --task "${GYM_ID}"
             --num_envs "${NUM_ENVS}"
+            --enable_cameras
         )
     fi
 
@@ -286,6 +287,7 @@ elif [ "${WATCH}" = true ]; then
     SIM_ARGS=(
         --task "${GYM_ID}"
         --num_envs "${NUM_ENVS}"  # Respects --num-envs override (default from profile)
+        --enable_cameras
     )
 
     echo "  VNC rendering enabled."
@@ -303,6 +305,7 @@ else
         --max_iterations "${MAX_ITER}"
         --log_dir "/workspace/output/logs"
         --checkpoint_dir "/workspace/output/checkpoints"
+        --enable_cameras
     )
 fi
 

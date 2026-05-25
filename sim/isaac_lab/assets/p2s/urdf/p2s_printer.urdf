@@ -13,7 +13,10 @@
 
   <!-- ── Materials (inlined from materials.xacro) ────────────────────────── -->
   <material name="silver">
-    <color rgba="0.700 0.700 0.700 1.000"/>
+    <color rgba="0.500 0.500 0.500 1.000"/>
+  </material>
+  <material name="glass">
+    <color rgba="0.750 0.850 0.950 0.250"/>
   </material>
 
   <!-- ── base_link: Static printer body ──────────────────────────────────── -->
@@ -116,7 +119,7 @@
       <geometry>
         <mesh filename="../meshes/Door_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
-      <material name="silver"/>
+      <material name="glass"/>
     </visual>
     <collision>
       <origin xyz="0.03 -0.03 0" rpy="0 0 0"/>
@@ -124,6 +127,22 @@
         <mesh filename="../meshes/Door_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
+  </link>
+
+  <!-- ── Interior light mount points (fixed to base_link, top corners) ──── -->
+  <link name="light_l_link">
+    <inertial>
+      <mass value="0.001"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8"/>
+    </inertial>
+  </link>
+  <link name="light_r_link">
+    <inertial>
+      <mass value="0.001"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8"/>
+    </inertial>
   </link>
 
   <!-- ── Door Handle Marker (visual-only ArUco reference) ─────────────── -->
@@ -135,14 +154,14 @@
     </inertial>
     <visual>
       <geometry>
-        <box size="0.04 0.04 0.001"/>
+        <box size="0.05 0.05 0.002"/>
       </geometry>
-      <material name="aruco_white"/>
+      <material name="marker_red"/>
     </visual>
   </link>
 
-  <material name="aruco_white">
-    <color rgba="1.0 1.0 1.0 1.0"/>
+  <material name="marker_red">
+    <color rgba="1.0 0.0 0.0 1.0"/>
   </material>
 
   <!-- ── Joints ──────────────────────────────────────────────────────────── -->
@@ -185,6 +204,18 @@
     <parent link="Door_1"/>
     <child link="door_handle_marker"/>
     <origin xyz="0.15 -0.03 -0.05" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Interior light mounts: top-front corners, symmetric about printer center -->
+  <joint name="light_l_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="light_l_link"/>
+    <origin xyz="-0.04 0.10 0.45" rpy="0 0 0"/>
+  </joint>
+  <joint name="light_r_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="light_r_link"/>
+    <origin xyz="0.31 0.10 0.45" rpy="0 0 0"/>
   </joint>
 
   <!-- ── Transmissions (inlined from BAMBULAB_P2S.trans) ──────────────────── -->

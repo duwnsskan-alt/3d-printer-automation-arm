@@ -144,6 +144,55 @@ def setup_joint_drives(stage, robot_path, angular_stiffness=400.0,
     print(f"  Drives configured: {joint_count} joints under {robot_path}")
 
 
+def override_joint_drive(stage, robot_path, joint_name,
+                         stiffness=None, damping=None, max_force=None):
+    """Override individual joint drive attributes by joint name."""
+    root = stage.GetPrimAtPath(robot_path)
+    for prim in Usd.PrimRange(root):
+        if prim.GetName() != joint_name:
+            continue
+        tn = prim.GetTypeName()
+        if "RevoluteJoint" in tn:
+            drive_type = "angular"
+        elif "PrismaticJoint" in tn:
+            drive_type = "linear"
+        else:
+            continue
+        drive = UsdPhysics.DriveAPI.Apply(prim, drive_type)
+        if stiffness is not None: drive.CreateStiffnessAttr().Set(stiffness)
+        if damping is not None: drive.CreateDampingAttr().Set(damping)
+        if max_force is not None: drive.CreateMaxForceAttr().Set(max_force)
+        print(f"  Override: {joint_name} -> stiffness={stiffness}, damping={damping}, max_force={max_force}")
+        return
+    print(f"  WARNING: joint '{joint_name}' not found under {robot_path}")
+
+
+def add_interior_light(stage, prim_path, world_pos=None, intensity=100000.0,
+                       radius=0.02, color=(1.0, 0.95, 0.85)):
+    """Add a sphere light. If world_pos is None, light inherits parent xform
+    (used when prim_path nests under a URDF mount link)."""
+    from pxr import UsdLux
+    light = UsdLux.SphereLight.Define(stage, prim_path)
+    light.CreateRadiusAttr(radius)
+    light.CreateIntensityAttr(intensity)
+    light.CreateColorAttr(Gf.Vec3f(*color))
+    if world_pos is not None:
+        UsdGeom.XformCommonAPI(light.GetPrim()).SetTranslate(Gf.Vec3d(*world_pos))
+    print(f"  Light added: {prim_path}")
+
+
+def disable_link_gravity(stage, link_path):
+    """Disable gravity on a single rigid body link (PhysX schema)."""
+    from pxr import PhysxSchema
+    prim = stage.GetPrimAtPath(link_path)
+    if not prim.IsValid():
+        print(f"  WARNING: link {link_path} not found for disable_gravity")
+        return
+    api = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+    api.CreateDisableGravityAttr().Set(True)
+    print(f"  Gravity disabled on {link_path}")
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -235,8 +284,26 @@ def main():
         linear_stiffness=10000.0,
         linear_damping=1000.0,
     )
+    # Per-joint overrides: door swings free; Z bed has light holding drive.
+    override_joint_drive(stage, "/World/P2S", "door_hinge", max_force=0.0)
+    override_joint_drive(
+        stage, "/World/P2S", "Z_axis",
+        stiffness=100000.0, damping=1000.0, max_force=1000.0,
+    )
+    # Z bed: stepper motor → no gravity. Holds position from drive + no falling.
+    disable_link_gravity(stage, "/World/P2S/Z_bed_1")
 
-    # ── Camera ─────────────────────────────────────────────────────────────────
+    # ── Interior Lights (mounted under URDF light_*_link, top corners) ─────────
+    add_interior_light(stage, "/World/P2S/light_l_link/Light")
+    add_interior_light(stage, "/World/P2S/light_r_link/Light")
+
+    # ── Wrist Camera attach (URDF defines wrist_camera_link; this adds Camera prim) ─
+    import sys
+    sys.path.insert(0, "/workspace/project/sim/isaac_lab")
+    from so100_utils import attach_wrist_camera
+    attach_wrist_camera(stage)
+
+    # ── Viewport camera ────────────────────────────────────────────────────────
     set_camera_view(
         eye=np.array([0.8, 0.8, 0.6]),
         target=np.array([0.2, 0.0, 0.15]),

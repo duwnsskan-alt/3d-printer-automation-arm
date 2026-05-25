@@ -149,8 +149,9 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="assets/Fixed_Jaw.stl"/>
+        <mesh filename="assets/Wrist_Cam_Mount.stl"/>
       </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="-1.57075 0 3.1415"/>
       <material name="3d_printed"/>
     </visual>
     <visual>
@@ -296,5 +297,32 @@
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
+
+  <!-- ── Wrist camera mount (matched to so100_rail.urdf) ─────────────────── -->
+  <material name="camera_black">
+    <color rgba="0.15 0.15 0.15 1.0"/>
+  </material>
+
+  <link name="gripper_camera_link">
+    <inertial>
+      <mass value="0.01"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <box size="0.025 0.025 0.001"/>
+      </geometry>
+      <material name="camera_black"/>
+    </visual>
+  </link>
+
+  <!-- Calibrated visually in Isaac Sim viewer.
+       Rotate: x=-40°, y=0°, z=180°  →  rpy radians below. -->
+  <joint name="wrist_camera_joint" type="fixed">
+    <parent link="gripper"/>
+    <child link="gripper_camera_link"/>
+    <origin xyz="-0.003 0.003 -0.073" rpy="-2.0 0.0 0.0"/>
+  </joint>
 
 </robot> 

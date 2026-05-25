@@ -31,24 +31,24 @@
     <visual>
       <origin xyz="0 0 -0.01" rpy="0 0 0"/>
       <geometry>
-        <box size="0.08 0.7 0.02"/>
+        <box size="0.6 0.08 0.02"/>
       </geometry>
       <material name="rail_metal"/>
     </visual>
     <collision>
       <origin xyz="0 0 -0.01" rpy="0 0 0"/>
       <geometry>
-        <box size="0.08 0.7 0.02"/>
+        <box size="0.6 0.08 0.02"/>
       </geometry>
     </collision>
   </link>
 
-  <!-- Rail slide joint: Y-axis lateral movement -->
+  <!-- Rail slide joint: X-axis movement (towards printer) -->
   <joint name="rail_slide" type="prismatic">
     <parent link="rail_base"/>
     <child link="base"/>
     <origin xyz="0 0 0" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
+    <axis xyz="1 0 0"/>
     <limit lower="-0.3" upper="0.3" effort="200" velocity="0.5"/>
     <dynamics damping="100.0" friction="5.0"/>
   </joint>
@@ -189,8 +189,9 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="assets/Fixed_Jaw.stl"/>
+        <mesh filename="assets/Wrist_Cam_Mount.stl"/>
       </geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="-1.57075 0 3.1415"/>
       <material name="3d_printed"/>
     </visual>
     <visual>
@@ -216,7 +217,7 @@
   </link>
 
   <!-- ── Wrist Camera (SO-101 bracket position) ──────────────────────── -->
-  <link name="wrist_camera_link">
+  <link name="gripper_camera_link">
     <inertial>
       <mass value="0.01"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -280,11 +281,11 @@
     <limit lower="-0.2" upper="2.0" effort="35" velocity="1"/>
   </joint>
 
-  <!-- Camera mount: fixed to gripper, tilted 30° forward-down -->
+  <!-- Calibrated visually in Isaac Sim viewer. Synced with so100.urdf. -->
   <joint name="wrist_camera_joint" type="fixed">
     <parent link="gripper"/>
-    <child link="wrist_camera_link"/>
-    <origin xyz="0.0 -0.04 0.015" rpy="0 0.52 0"/>
+    <child link="gripper_camera_link"/>
+    <origin xyz="0.0 -0.0 -0.07" rpy="-0.4 0.0 0.0"/>
   </joint>
 
   <!-- ── Transmissions ───────────────────────────────────────────────── -->
