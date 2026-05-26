@@ -1,0 +1,58 @@
+# Data source registry for semicon-cycle-monitor.
+# Each source maps to a fetcher in scripts/fetchers/.
+
+sources:
+  trendforce_contract:
+    url: https://www.trendforce.com/price
+    method: scrape  # or "api" if paid feed available
+    cadence: monthly
+    signals: [signal_1, signal_5]
+    notes: |
+      Contract prices for DDR5 8Gb. Behind paywall for current month —
+      use web search fallback if scrape fails.
+
+  trendforce_spot:
+    url: https://www.dramexchange.com
+    method: scrape
+    cadence: weekly
+    signals: [signal_1]
+
+  micron_ir:
+    url: https://investors.micron.com/financial-information
+    method: scrape
+    cadence: quarterly
+    signals: [signal_2]
+    notes: Pull DIO from latest 10-Q balance sheet.
+
+  sk_hynix_ir:
+    url: https://www.skhynix.com/eng/ir/financial-results.jsp
+    method: scrape
+    cadence: quarterly
+    signals: [signal_2, signal_3]
+
+  samsung_ir:
+    url: https://www.samsung.com/global/ir
+    method: scrape
+    cadence: quarterly
+    signals: [signal_2, signal_3]
+
+  hyperscaler_earnings:
+    tickers: [MSFT, META, GOOGL, AMZN]
+    method: api  # via earnings calendar / transcript API
+    cadence: quarterly
+    signals: [signal_3]
+    notes: |
+      Capex forward guidance. Aggregate across 4 hyperscalers,
+      weight by HBM share if estimable, otherwise equal-weight.
+
+  wsts:
+    url: https://www.wsts.org
+    method: manual  # WSTS data is gated, manual entry from press release
+    cadence: monthly
+    signals: [signal_4]
+
+# Fallback: when any primary source fails, use Claude API web search
+# with the source URL + the metric name as query.
+fallback:
+  method: web_search_via_claude
+  retry_after_failures: 2
