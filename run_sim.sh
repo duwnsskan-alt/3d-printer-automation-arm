@@ -40,6 +40,7 @@ WATCH=false
 DISPLAY_MODE=false
 LOAD_URDF=false
 LOAD_SCENE=false
+INSPECT=false
 MAX_ITER=""
 OVERRIDE_NUM_ENVS=""
 IMAGE_NAME="printer-arm-isaacsim"
@@ -76,6 +77,7 @@ while [[ $# -gt 0 ]]; do
         --display)   DISPLAY_MODE=true; shift ;;
         --load-urdf) LOAD_URDF=true; shift ;;
         --load-scene) LOAD_SCENE=true; shift ;;
+        --inspect)    INSPECT=true; shift ;;
         --num-envs)  OVERRIDE_NUM_ENVS="$2"; shift 2 ;;
         --max-iter)  MAX_ITER="$2"; shift 2 ;;
         --rebuild)   REBUILD=true; shift ;;
@@ -225,6 +227,7 @@ fi
 
 if [ "${DISPLAY_MODE}" = true ]; then
     # Direct display mode: X11 passthrough to host monitor
+    xhost +local:docker 2>/dev/null || echo "WARNING: xhost not available, X11 forwarding may fail."
     DOCKER_ARGS+=(
         -e "DISPLAY=${DISPLAY}"
         -v /tmp/.X11-unix:/tmp/.X11-unix
@@ -239,6 +242,14 @@ if [ "${DISPLAY_MODE}" = true ]; then
         DOCKER_ARGS+=(-e "SIM_SCRIPT=/workspace/project/sim/isaac_lab/load_so100_standalone.py")
         SIM_ARGS=()
         echo "  URDF viewer (direct display): loading SO-100 robot arm."
+    elif [ "${INSPECT}" = true ]; then
+        DOCKER_ARGS+=(-e "SIM_SCRIPT=/workspace/project/sim/isaac_lab/inspect_rl_env.py")
+        SIM_ARGS=(
+            --task "${GYM_ID}"
+            --num_envs 1
+            --enable_cameras
+        )
+        echo "  Inspect mode: RL scene (${GYM_ID}) with zero-action loop, no training."
     else
         SIM_ARGS=(
             --task "${GYM_ID}"

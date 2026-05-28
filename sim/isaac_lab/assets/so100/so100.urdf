@@ -310,8 +310,9 @@
       <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
     </inertial>
     <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <box size="0.025 0.025 0.001"/>
+        <box size="0.025 0.025 0.015"/>
       </geometry>
       <material name="camera_black"/>
     </visual>
@@ -322,7 +323,7 @@
   <joint name="wrist_camera_joint" type="fixed">
     <parent link="gripper"/>
     <child link="gripper_camera_link"/>
-    <origin xyz="-0.003 0.003 -0.073" rpy="-2.0 0.0 0.0"/>
+    <origin xyz="-0.003 0.003 -0.073" rpy="-0.4 0.0 0.0"/>
   </joint>
 
 </robot> 

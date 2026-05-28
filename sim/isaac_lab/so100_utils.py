@@ -53,5 +53,14 @@ def attach_wrist_camera(stage, robot_root_path=None,
     cam.CreateFocusDistanceAttr(CAMERA_FOCUS_DISTANCE)
     cam.CreateHorizontalApertureAttr(CAMERA_HORIZONTAL_APERTURE)
     cam.CreateClippingRangeAttr((CAMERA_CLIP_NEAR, CAMERA_CLIP_FAR))
+
+    # Visually calibrated transform inside the parent link (jaw-pointing view).
+    # Matches scene_cfg.py CameraCfg.offset: translate (0, -0.02, 0),
+    # Rotate XYZ degrees (-110, 0, 0).
+    from pxr import Gf
+    xform = UsdGeom.XformCommonAPI(cam.GetPrim())
+    xform.SetTranslate(Gf.Vec3d(0.0, -0.02, 0.0))
+    xform.SetRotate(Gf.Vec3f(-110.0, 0.0, 0.0), UsdGeom.XformCommonAPI.RotationOrderXYZ)
+
     print(f"  Camera attached: {cam_path}")
     return cam_path

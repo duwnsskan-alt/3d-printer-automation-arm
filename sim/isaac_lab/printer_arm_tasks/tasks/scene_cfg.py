@@ -329,9 +329,11 @@ class P2SArmSceneCfg(InteractiveSceneCfg):
             horizontal_aperture=20.955,
             clipping_range=(0.01, 1.5),
         ),
+        # Visually calibrated in inspect viewer (GUI Translate/Rotate XYZ).
+        # Rotate XYZ (-110°, 0°, 0°) → quaternion (w, x, y, z).
         offset=CameraCfg.OffsetCfg(
-            pos=(0.0, 0.0, 0.0),
-            rot=(1.0, 0.0, 0.0, 0.0),
+            pos=(0.0, -0.02, 0.0),
+            rot=(0.573576, -0.819152, 0.0, 0.0),
             convention="ros",
         ),
     )
